@@ -41,7 +41,7 @@ from .sync import SyncPlugin
 from .retsync.rsconfig import rs_log
 
 
-def add_commands(plugin):
+def add_commands(plugin: SyncPlugin):
     DbgAction = namedtuple("DbgAction", "name, key_seq, handler")
     plugin_actions = (
         DbgAction(

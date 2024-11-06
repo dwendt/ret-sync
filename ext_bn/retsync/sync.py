@@ -23,8 +23,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+
+import binaryninja
 import binaryninjaui
-if 'qt_major_version' in binaryninjaui.__dict__ and binaryninjaui.qt_major_version == 6:
+
+if "qt_major_version" in binaryninjaui.__dict__ and binaryninjaui.qt_major_version == 6:
     from PySide6 import QtCore
     from PySide6.QtCore import Qt
 else:
@@ -59,26 +62,26 @@ class SyncHandler(object):
 
     # location request, update disassembly view
     def req_loc(self, sync):
-        offset, base = sync['offset'], sync.get('base')
+        offset, base = sync["offset"], sync.get("base")
         self.plugin.goto(base, offset)
 
     def req_rbase(self, sync):
-        self.plugin.set_remote_base(sync['rbase'])
+        self.plugin.set_remote_base(sync["rbase"])
 
     def req_cmt(self, sync):
-        offset, base, cmt = sync['offset'], sync.get('base'), sync['msg']
+        offset, base, cmt = sync["offset"], sync.get("base"), sync["msg"]
         self.plugin.add_cmt(base, offset, cmt)
 
     def req_fcmt(self, sync):
-        offset, base, cmt = sync['offset'], sync.get('base'), sync['msg']
+        offset, base, cmt = sync["offset"], sync.get("base"), sync["msg"]
         self.plugin.add_fcmt(base, offset, cmt)
 
     def req_rcmt(self, sync):
-        offset, base = sync['offset'], sync.get('base')
+        offset, base = sync["offset"], sync.get("base")
         self.plugin.reset_cmt(base, offset)
 
     def req_cmd(self, sync):
-        msg_b64, offset, base = sync['msg'], sync['offset'], sync['base']
+        msg_b64, offset, base = sync["msg"], sync["offset"], sync["base"]
         cmt = rs_decode(base64.b64decode(msg_b64))
         self.plugin.add_cmt(base, offset, cmt)
 
@@ -87,14 +90,14 @@ class SyncHandler(object):
         if cursor_addr:
             self.client.send(rs_encode(hex(cursor_addr)))
         else:
-            rs_log('failed to get cursor location')
+            rs_log("failed to get cursor location")
 
     def req_not_implemented(self, sync):
         rs_log(f"request type {sync['type']} not implemented")
 
     def parse(self, client, sync):
         self.client = client
-        stype = sync['type']
+        stype = sync["type"]
         if stype not in self.req_handlers:
             rs_log("unknown sync request: %s" % stype)
             return
@@ -110,36 +113,35 @@ class SyncHandler(object):
         self.plugin = plugin
         self.client = None
         self.req_handlers = {
-            'loc': self.req_loc,
-            'rbase': self.req_rbase,
-            'cmd': self.req_cmd,
-            'cmt': self.req_cmt,
-            'rcmt': self.req_rcmt,
-            'fcmt': self.req_fcmt,
-            'cursor': self.req_cursor,
-
-            'raddr': self.req_not_implemented,
-            'patch': self.req_not_implemented,
-            'rln': self.req_not_implemented,
-            'rrln': self.req_not_implemented,
-            'lbl': self.req_not_implemented,
-            'bps_get': self.req_not_implemented,
-            'bps_set': self.req_not_implemented,
-            'modcheck': self.req_not_implemented,
+            "loc": self.req_loc,
+            "rbase": self.req_rbase,
+            "cmd": self.req_cmd,
+            "cmt": self.req_cmt,
+            "rcmt": self.req_rcmt,
+            "fcmt": self.req_fcmt,
+            "cursor": self.req_cursor,
+            "raddr": self.req_not_implemented,
+            "patch": self.req_not_implemented,
+            "rln": self.req_not_implemented,
+            "rrln": self.req_not_implemented,
+            "lbl": self.req_not_implemented,
+            "bps_get": self.req_not_implemented,
+            "bps_set": self.req_not_implemented,
+            "modcheck": self.req_not_implemented,
         }
 
 
 class NoticeHandler(object):
 
     def is_windows_dbg(self, dialect):
-        return (dialect in ['windbg', 'x64_dbg', 'ollydbg2'])
+        return dialect in ["windbg", "x64_dbg", "ollydbg2"]
 
     def req_new_dbg(self, notice):
-        dialect = notice['dialect']
+        dialect = notice["dialect"]
         rs_log(f"new_dbg: {notice['msg']}")
         self.plugin.bootstrap(dialect)
 
-        if sys.platform.startswith('linux') or sys.platform == 'darwin':
+        if sys.platform.startswith("linux") or sys.platform == "darwin":
             if self.is_windows_dbg(dialect):
                 global RemotePath
                 from pathlib import PureWindowsPath as RemotePath
@@ -152,7 +154,7 @@ class NoticeHandler(object):
         rs_log("dbg err: disabling current program")
 
     def req_module(self, notice):
-        pgm = RemotePath(notice['path']).name
+        pgm = RemotePath(notice["path"]).name
         if not self.plugin.sync_mode_auto:
             rs_log(f"sync mod auto off, dropping mod request ({pgm})")
         else:
@@ -161,45 +163,45 @@ class NoticeHandler(object):
     def req_idb_list(self, notice):
         output = "open program(s):\n"
         for i, pgm in enumerate(self.plugin.pgm_mgr.as_list()):
-            is_active = ' (*)' if pgm.path.name == self.plugin.current_pgm else ''
+            is_active = " (*)" if pgm.path.name == self.plugin.current_pgm else ""
             output += f"[{i}] {str(pgm.path.name)} {is_active}\n"
 
         self.plugin.broadcast(output)
 
     def req_idb_n(self, notice):
-        idb = notice['idb']
+        idb = notice["idb"]
         try:
             idbn = int(idb)
         except (TypeError, ValueError) as e:
-            self.plugin.broadcast('> index error: n should be a decimal value')
+            self.plugin.broadcast("> index error: n should be a decimal value")
             return
 
         self.plugin.set_program_id(idbn)
 
     def req_sync_mode(self, notice):
-        mode = notice['auto']
+        mode = notice["auto"]
         rs_log(f"sync mode auto: {mode}")
-        if mode == 'on':
+        if mode == "on":
             self.plugin.sync_mode_auto = True
-        elif mode == 'off':
+        elif mode == "off":
             self.plugin.sync_mode_auto = False
         else:
             rs_log(f"sync mode unknown: {mode}")
 
     def req_bc(self, notice):
-        action = notice['msg']
+        action = notice["msg"]
 
-        if action == 'on':
+        if action == "on":
             self.plugin.cb_trace_enabled = True
-            rs_log('color trace enabled')
-        elif action == 'off':
+            rs_log("color trace enabled")
+        elif action == "off":
             self.plugin.cb_trace_enabled = False
-            rs_log('color trace disabled')
-        elif action == 'oneshot':
+            rs_log("color trace disabled")
+        elif action == "oneshot":
             self.plugin.cb_trace_enabled = True
 
     def parse(self, notice):
-        ntype = notice['type']
+        ntype = notice["type"]
         if ntype not in self.req_handlers:
             rs_log("unknown notice request: %s" % ntype)
             return
@@ -210,20 +212,20 @@ class NoticeHandler(object):
     def __init__(self, plugin):
         self.plugin = plugin
         self.req_handlers = {
-            'new_dbg': self.req_new_dbg,
-            'dbg_quit': self.req_dbg_quit,
-            'dbg_err': self.req_dbg_err,
-            'module': self.req_module,
-            'idb_list': self.req_idb_list,
-            'sync_mode': self.req_sync_mode,
-            'idb_n': self.req_idb_n,
-            'bc': self.req_bc,
+            "new_dbg": self.req_new_dbg,
+            "dbg_quit": self.req_dbg_quit,
+            "dbg_err": self.req_dbg_err,
+            "module": self.req_module,
+            "idb_list": self.req_idb_list,
+            "sync_mode": self.req_sync_mode,
+            "idb_n": self.req_idb_n,
+            "bc": self.req_bc,
         }
 
 
 class RequestType(object):
-    NOTICE = '[notice]'
-    SYNC = '[sync]'
+    NOTICE = "[notice]"
+    SYNC = "[sync]"
 
     @staticmethod
     def extract(request):
@@ -236,7 +238,7 @@ class RequestType(object):
 
     @staticmethod
     def normalize(request, tag):
-        request = request[len(tag):]
+        request = request[len(tag) :]
         request = request.replace("\\", "\\\\")
         request = request.replace("\n", "")
         return request.strip()
@@ -287,7 +289,7 @@ class ClientHandler(asyncore.dispatcher_with_send):
     def handle_read(self):
         data = rs_decode(self.recv(8192))
 
-        if data and data != '':
+        if data and data != "":
             fd = io.StringIO(data)
             batch = fd.readlines()
 
@@ -308,7 +310,7 @@ class ClientHandler(asyncore.dispatcher_with_send):
 
 class ClientListener(asyncore.dispatcher):
 
-    def __init__(self, plugin):
+    def __init__(self, plugin: "SyncPlugin"):
         asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.bind((plugin.user_conf.host, plugin.user_conf.port))
@@ -319,7 +321,7 @@ class ClientListener(asyncore.dispatcher):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
-            rs_log('incoming connection from %s' % repr(addr))
+            rs_log(f"incoming connection from {addr!r}")
             self.plugin.client = ClientHandler(sock, self.plugin.request_handler)
 
     def handle_expt(self):
@@ -333,7 +335,7 @@ class ClientListener(asyncore.dispatcher):
 
 class ClientListenerTask(threading.Thread):
 
-    def __init__(self, plugin):
+    def __init__(self, plugin: "SyncPlugin"):
         threading.Thread.__init__(self)
         self.plugin = plugin
         self.server = None
@@ -341,17 +343,19 @@ class ClientListenerTask(threading.Thread):
     def is_port_available(self, host, port):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
             sock.bind((host, port))
             return True
-        except Exception as e:
+        except Exception:
             return False
         finally:
             sock.close()
 
     def run(self):
-        if not self.is_port_available(self.plugin.user_conf.host, self.plugin.user_conf.port):
+        if not self.is_port_available(
+            self.plugin.user_conf.host, self.plugin.user_conf.port
+        ):
             rs_log(f"aborting, port {self.plugin.user_conf.port} already in use")
             self.plugin.cmd_syncoff()
             return
@@ -359,16 +363,16 @@ class ClientListenerTask(threading.Thread):
         try:
             self.server = ClientListener(self.plugin)
             self.plugin.reset_client()
-            rs_log('server started')
+            rs_log("server started")
             asyncore.loop()
         except Exception as e:
-            rs_log('server initialization failed')
+            rs_log(f"server initialization failed, reason: {str(e)}")
             self.cancel()
             self.plugin.cmd_syncoff()
 
     def cancel(self):
         if self.server:
-            rs_log('server shutdown')
+            rs_log("server shutdown")
             asyncore.close_all()
             self.server.close()
             self.server = None
@@ -378,27 +382,29 @@ class ClientListenerTask(threading.Thread):
 class Program:
     path: Path
     base: int = None
-    refcount : int = 1
+    refcount: int = 1
 
     def lock(self):
-        self.refcount  += 1
+        self.refcount += 1
 
     def release(self):
-        self.refcount  -= 1
-        return (self.refcount  == 0)
+        self.refcount -= 1
+        return self.refcount == 0
 
 
 # ProgramManager is used to keep track of opened tabs
 # and programs' state (e.g. base address)
 class ProgramManager(object):
     def __init__(self):
-        self.opened = OrderedDict()
+        self.opened: OrderedDict[str, Program] = OrderedDict()
 
     def add(self, file):
         ppath = Path(file)
         if ppath.name in self.opened:
-            rs_log(f"name collision ({ppath.name}):\n  - new:      \"{ppath}\"\n  - existing: \"{self.opened[ppath.name].path}\"")
-            rs_log(f"warning, tab switching may not work as expected")
+            rs_log(
+                f'name collision ({ppath.name}):\n  - new:      "{ppath}"\n  - existing: "{self.opened[ppath.name].path}"'
+            )
+            rs_log("warning, tab switching may not work as expected")
             self.opened[ppath.name].lock()
         else:
             self.opened[ppath.name] = Program(ppath)
@@ -410,7 +416,7 @@ class ProgramManager(object):
                 del self.opened[pgm]
 
     def exists(self, pgm):
-        return (Path(pgm).name in self.opened)
+        return Path(pgm).name in self.opened
 
     def reset_bases(self):
         for _, pgm in self.opened.items():
@@ -435,18 +441,11 @@ class ProgramManager(object):
 
     def list_dyn(self):
         self.opened = {}
-        dock = DockHandler.getActiveDockHandler()
-        view_frame = dock.getViewFrame()
-
-        if view_frame:
-            frames = view_frame.parent()
-            for i in range(frames.count()):
-                widget = frames.widget(i)
-                vf = ViewFrame.viewFrameForWidget(widget)
-                if vf:
-                    file_name = vf.getFileContext().getFilename
-                    self.add(file_name)
-
+        ctx: binaryninjaui.UIContext = binaryninjaui.UIContext.activeContext()
+        for path_str, bv in ctx.getAvailableBinaryViews():
+            assert isinstance(path_str, str)
+            assert isinstance(bv, binaryninja.BinaryView)
+            self.add(path_str)
         return self.opened
 
 
@@ -481,8 +480,11 @@ class SyncPlugin(UIContextNotification):
     def init_widget(self):
         dock_handler = DockHandler.getActiveDockHandler()
         parent = dock_handler.parent()
+        rs_log(str(parent))
         self.widget = SyncDockWidget.create_widget("ret-sync plugin", parent)
-        dock_handler.addDockWidget(self.widget, Qt.BottomDockWidgetArea, Qt.Horizontal, True, False)
+        dock_handler.addDockWidget(
+            self.widget, Qt.BottomDockWidgetArea, Qt.Horizontal, True, False
+        )
 
     def OnAfterOpenFile(self, context, file, frame):
         self.pgm_mgr.add(file.getRawData().file.original_filename)
@@ -553,7 +555,7 @@ class SyncPlugin(UIContextNotification):
     def set_program_id(self, index):
         pgm = self.pgm_mgr.get_at(index)
         if pgm:
-            self.broadcast(f"> active program is now \"{pgm}\" ({index})")
+            self.broadcast(f'> active program is now "{pgm}" ({index})')
             self.pgm_target_with_lock(pgm)
         else:
             self.broadcast(f"> idb_n error: index {index} is invalid (see idblist)")
@@ -587,11 +589,12 @@ class SyncPlugin(UIContextNotification):
                 self.target_tab = None
                 self.next_tab_lock.set()
         except Exception as e:
-            rs_log('error while switching tabs')
+            rs_log(f"error while switching tabs, reason: {str(e)}")
 
     def trigger_action(self, action: str):
         handler = UIActionHandler().actionHandlerFromWidget(
-            DockHandler.getActiveDockHandler().parent())
+            DockHandler.getActiveDockHandler().parent()
+        )
         handler.executeAction(action)
 
     # check if address is within a valid segment
@@ -603,7 +606,7 @@ class SyncPlugin(UIContextNotification):
         if base is not None:
             # check for non-compliant debugger client
             if base > offset:
-                rs_log('unsafe addr: 0x%x > 0x%x' % (base, offset))
+                rs_log("unsafe addr: 0x%x > 0x%x" % (base, offset))
                 return None
 
             # update base address of remote module
@@ -614,7 +617,7 @@ class SyncPlugin(UIContextNotification):
             dest = self.rebase_local(offset)
 
         if not self.is_safe(dest):
-            rs_log('unsafe addr: 0x%x not in valid segment' % dest)
+            rs_log("unsafe addr: 0x%x not in valid segment" % dest)
             return None
 
         return dest
@@ -650,7 +653,7 @@ class SyncPlugin(UIContextNotification):
             if self.cb_trace_enabled:
                 self.color_callback(goto_addr)
         else:
-            rs_log('goto: no view available')
+            rs_log("goto: no view available")
 
     def color_callback(self, hglt_addr):
         blocks = self.binary_view.get_basic_blocks_at(hglt_addr)
@@ -675,7 +678,7 @@ class SyncPlugin(UIContextNotification):
     def reset_cmt(self, base, offset):
         cmt_addr = self.rebase(base, offset)
         if cmt_addr:
-            self.binary_view.set_comment_at(cmt_addr, '')
+            self.binary_view.set_comment_at(cmt_addr, "")
 
     def add_fcmt(self, base, offset, cmt):
         if not self.binary_view:
@@ -686,10 +689,10 @@ class SyncPlugin(UIContextNotification):
             fn.comment = cmt
 
     def commands_available(self):
-        if (self.sync_enabled and self.dbg_dialect):
+        if self.sync_enabled and self.dbg_dialect:
             return True
 
-        rs_log('commands not available')
+        rs_log("commands not available")
         return False
 
     # send a command to the debugger
@@ -702,54 +705,60 @@ class SyncPlugin(UIContextNotification):
             return
 
         cmdline = self.dbg_dialect[cmd]
-        if args and args != '':
+        if args and args != "":
             cmdline += args
-        if oneshot and ('oneshot_post' in self.dbg_dialect):
-            cmdline += self.dbg_dialect['oneshot_post']
+        if oneshot and ("oneshot_post" in self.dbg_dialect):
+            cmdline += self.dbg_dialect["oneshot_post"]
 
         self.client.send(rs_encode(cmdline))
 
-    def send_cmd_raw(self, cmd, args,):
+    def send_cmd_raw(
+        self,
+        cmd,
+        args,
+    ):
         if not self.commands_available():
             return
 
-        if 'prefix' in self.dbg_dialect:
-            cmd_pre = self.dbg_dialect['prefix']
+        if "prefix" in self.dbg_dialect:
+            cmd_pre = self.dbg_dialect["prefix"]
         else:
-            cmd_pre = ''
+            cmd_pre = ""
 
         cmdline = f"{cmd_pre}{cmd} {args}"
         self.client.send(rs_encode(cmdline))
 
     def send_simple_cmd(self, cmd):
-        self.send_cmd(cmd, '')
+        self.send_cmd(cmd, "")
 
-    def generic_bp(self, bp_cmd, oneshot=False):
+    def generic_bp(self, bp_cmd: str, oneshot=False):
         ui_addr = self.view_frame.getCurrentOffset()
         if not ui_addr:
-            rs_log('failed to get cursor location')
+            rs_log("failed to get cursor location")
             return
 
         if not self.base_remote:
-            rs_log(f"{cmd} failed, remote base of {self.current_pgm} program unknown")
+            rs_log(
+                f"{bp_cmd} failed, remote base of {self.current_pgm} program unknown"
+            )
             return
 
         remote_addr = self.rebase_remote(ui_addr)
         self.send_cmd(bp_cmd, hex(remote_addr), oneshot)
 
     def cmd_go(self, ctx=None):
-        self.send_simple_cmd('go')
+        self.send_simple_cmd("go")
 
     def cmd_si(self, ctx=None):
-        self.send_simple_cmd('si')
+        self.send_simple_cmd("si")
 
     def cmd_so(self, ctx=None):
-        self.send_simple_cmd('so')
+        self.send_simple_cmd("so")
 
     def cmd_translate(self, ctx=None):
         ui_addr = self.view_frame.getCurrentOffset()
         if not ui_addr:
-            rs_log('failed to get cursor location')
+            rs_log("failed to get cursor location")
             return
 
         rs_debug(f"translate address {hex(ui_addr)}")
@@ -757,24 +766,24 @@ class SyncPlugin(UIContextNotification):
         self.send_cmd_raw("translate", args)
 
     def cmd_bp(self, ctx=None):
-        self.generic_bp('bp')
+        self.generic_bp("bp")
 
     def cmd_hwbp(self, ctx=None):
-        self.generic_bp('hbp')
+        self.generic_bp("hbp")
 
     def cmd_bp1(self, ctx=None):
-        self.generic_bp('bp1', True)
+        self.generic_bp("bp1", True)
 
     def cmd_hwbp1(self, ctx=None):
-        self.generic_bp('hbp1', True)
+        self.generic_bp("hbp1", True)
 
     def cmd_sync(self, ctx=None):
         if not self.pgm_mgr.opened:
-            rs_log('please open a tab first')
+            rs_log("please open a tab first")
             return
 
         if self.client_listener:
-            rs_log('already listening')
+            rs_log("already listening")
             return
 
         local_path = str(self.pgm_mgr.opened[self.current_tab].path)
@@ -788,4 +797,4 @@ class SyncPlugin(UIContextNotification):
             self.client_listener = None
             self.widget.reset_status()
         else:
-            rs_log('not listening')
+            rs_log("not listening")

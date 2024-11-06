@@ -31,6 +31,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 from collections import namedtuple
 
+import binaryninja
+
 from binaryninja.highlight import HighlightColor
 from binaryninja.enums import HighlightStandardColor
 
@@ -41,93 +43,99 @@ except ImportError:
 
 
 # networking settings
-HOST = 'localhost'
+HOST = "localhost"
 PORT = 9100
 
 CB_TRACE_COLOR = HighlightColor(HighlightStandardColor.GreenHighlightColor, alpha=192)
 
 # encoding settings (for data going in/out the plugin)
-RS_ENCODING = 'utf-8'
+RS_ENCODING = "utf-8"
 
 # debugging settings
 # enable/disable logging JSON received in the IDA output window
 DEBUG_JSON = False
 
 # global log level (console output)
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 # log prefix to identify plugin
-LOG_PREFIX = 'sync'
+LOG_PREFIX = "sync"
 
 # enable/disable broker and dipatcher exception logging to file
 LOG_TO_FILE_ENABLE = False
 
 # logging feature for broker and dispatcher (disabled by default)
-LOG_FMT_STRING = '%(asctime)-12s [%(levelname)s] %(message)s'
+LOG_FMT_STRING = "%(asctime)-12s [%(levelname)s] %(message)s"
 
 # dialects to translate debugger commands (breakpoint, step into/over, etc.)
 DBG_DIALECTS = {
-    'windbg': {
-        'prefix': '!',
-        'si': 't',
-        'so': 'p',
-        'go': 'g',
-        'bp': 'bp ',
-        'hbp': 'ba e 1 ',
-        'bp1': 'bp /1 ',
-        'hbp1': 'ba e 1 /1 '},
-    'gdb': {
-        'prefix': '',
-        'si': 'si',
-        'so': 'ni',
-        'go': 'continue',
-        'bp': 'b *',
-        'hbp': 'hb *',
-        'bp1': 'tb *',
-        'hbp1': 'thb *'},
-    'lldb': {
-        'prefix': '',
-        'si': 'si',
-        'so': 'ni',
-        'go': 'continue',
-        'run': 'run',
-        'bp': 'b *',
-        'hbp': 'xxx',
-        'bp1': 'tb *',
-        'hbp1': 'xxx'},
-    'ollydbg2': {
-        'prefix': '',
-        'si': 'si',
-        'so': 'so',
-        'go': 'go',
-        'bp': 'bp ',
-        'hbp': 'xxx ',
-        'bp1': 'xxx ',
-        'hbp1': 'xxx '},
-    'x64_dbg': {
-        'prefix': '!',
-        'si': 'sti',
-        'so': 'sto',
-        'go': 'go',
-        'bp': 'bp ',
-        'hbp': 'bph ',
-        'bp1': 'bp ',
-        'hbp1': 'bph ',
-        'oneshot_post': ',ss'},
+    "windbg": {
+        "prefix": "!",
+        "si": "t",
+        "so": "p",
+        "go": "g",
+        "bp": "bp ",
+        "hbp": "ba e 1 ",
+        "bp1": "bp /1 ",
+        "hbp1": "ba e 1 /1 ",
+    },
+    "gdb": {
+        "prefix": "",
+        "si": "si",
+        "so": "ni",
+        "go": "continue",
+        "bp": "b *",
+        "hbp": "hb *",
+        "bp1": "tb *",
+        "hbp1": "thb *",
+    },
+    "lldb": {
+        "prefix": "",
+        "si": "si",
+        "so": "ni",
+        "go": "continue",
+        "run": "run",
+        "bp": "b *",
+        "hbp": "xxx",
+        "bp1": "tb *",
+        "hbp1": "xxx",
+    },
+    "ollydbg2": {
+        "prefix": "",
+        "si": "si",
+        "so": "so",
+        "go": "go",
+        "bp": "bp ",
+        "hbp": "xxx ",
+        "bp1": "xxx ",
+        "hbp1": "xxx ",
+    },
+    "x64_dbg": {
+        "prefix": "!",
+        "si": "sti",
+        "so": "sto",
+        "go": "go",
+        "bp": "bp ",
+        "hbp": "bph ",
+        "bp1": "bp ",
+        "hbp1": "bph ",
+        "oneshot_post": ",ss",
+    },
 }
 
 
 def init_logging(src):
     logging.basicConfig(level=logging.DEBUG)
     name = os.path.basename(src)
-    logger = logging.getLogger('retsync.plugin.' + name)
+    logger = logging.getLogger("retsync.plugin." + name)
 
     if LOG_TO_FILE_ENABLE:
         rot_handler = logging.handlers.RotatingFileHandler(
             os.path.join(tempfile.gettempdir(), "retsync.%s.err" % name),
-            mode='a',
+            mode="a",
             maxBytes=8192,
-            backupCount=1)
+            backupCount=1,
+        )
 
         formatter = logging.Formatter(LOG_FMT_STRING)
         rot_handler.setFormatter(formatter)
@@ -135,12 +143,6 @@ def init_logging(src):
         logger.addHandler(rot_handler)
 
     return logger
-
-
-# console output wrapper
-def rs_log(s, lvl=logging.INFO):
-    if lvl >= LOG_LEVEL:
-        print("[%s] %s" % (LOG_PREFIX, s))
 
 
 def rs_debug(s):
@@ -155,29 +157,44 @@ def rs_decode(buffer_bytes):
     return buffer_bytes.decode(RS_ENCODING)
 
 
-def rs_log(s, lvl=logging.INFO):
-    if lvl >= LOG_LEVEL:
-        print("[%s] %s" % (LOG_PREFIX, s))
+def rs_log(s: str, lvl=logging.INFO):
+    if lvl < LOG_LEVEL:
+        return
+
+    msg = f"[{LOG_PREFIX}] {s}"
+    cb = None
+
+    if lvl == logging.DEBUG:
+        cb = binaryninja.log.log_debug
+    if lvl == logging.INFO:
+        cb = binaryninja.log.log_info
+    if lvl == logging.WARNING:
+        cb = binaryninja.log.log_warn
+    if lvl == logging.ERROR:
+        cb = binaryninja.log.log_error
+
+    if cb:
+        cb(msg)
 
 
 def load_configuration(pgm_path, name=None):
-    user_conf = namedtuple('user_conf', 'host port alias path')
+    user_conf = namedtuple("user_conf", "host port alias path")
     host, port, alias, path = HOST, PORT, None, None
 
-    for loc in (pgm_path, 'USERPROFILE', 'HOME'):
+    for loc in (pgm_path, "USERPROFILE", "HOME"):
         if loc in os.environ:
-            confpath = os.path.join(os.path.realpath(os.environ[loc]), '.sync')
+            confpath = os.path.join(os.path.realpath(os.environ[loc]), ".sync")
 
             if os.path.exists(confpath):
-                config = SafeConfigParser({'host': HOST, 'port': PORT})
+                config = SafeConfigParser({"host": HOST, "port": PORT})
                 config.read(confpath)
 
-                if config.has_section('INTERFACE'):
-                    host = config.get('INTERFACE', 'host')
-                    port = config.getint('INTERFACE', 'port')
+                if config.has_section("INTERFACE"):
+                    host = config.get("INTERFACE", "host")
+                    port = config.getint("INTERFACE", "port")
 
-                if name and config.has_option('ALIASES', name):
-                    alias_ = config.get('ALIASES', name)
+                if name and config.has_option("ALIASES", name):
+                    alias_ = config.get("ALIASES", name)
                     if alias_ != "":
                         alias = alias_
 
