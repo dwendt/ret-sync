@@ -23,12 +23,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define _PLUGINMAIN_H
 
 #include <windows.h>
-#include "pluginsdk\_plugins.h"
-
+#include <pluginsdk/_plugins.h>
 
 #ifndef DLL_EXPORT
 #define DLL_EXPORT __declspec(dllexport)
-#endif //DLL_EXPORT
+#endif // DLL_EXPORT
+
+#define dprintf(x, ...) _plugin_logprintf("[" PLUGIN_NAME "] " x, __VA_ARGS__)
+#define dputs(x) _plugin_logprintf("[" PLUGIN_NAME "] %s\n", x)
 
 // verbosity level for the plugin
 #define VERBOSE 0
@@ -43,9 +45,9 @@ extern "C"
 {
 #endif
 
-DLL_EXPORT bool pluginit(PLUG_INITSTRUCT* initStruct);
-DLL_EXPORT bool plugstop();
-DLL_EXPORT void plugsetup(PLUG_SETUPSTRUCT* setupStruct);
+    DLL_EXPORT bool pluginit(PLUG_INITSTRUCT *initStruct);
+    DLL_EXPORT bool plugstop();
+    DLL_EXPORT void plugsetup(PLUG_SETUPSTRUCT *setupStruct);
 
 #ifdef __cplusplus
 }
