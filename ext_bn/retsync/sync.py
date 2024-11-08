@@ -27,19 +27,10 @@ SOFTWARE.
 import binaryninja
 import binaryninjaui
 
-if "qt_major_version" in binaryninjaui.__dict__ and binaryninjaui.qt_major_version == 6:
-    from PySide6 import QtCore
-    from PySide6.QtCore import Qt
-else:
-    from PySide2 import QtCore
-    from PySide2.QtCore import Qt
+from PySide6.QtCore import Qt
 
 from binaryninjaui import DockHandler
-from binaryninjaui import UIAction, UIActionHandler, UIContext, UIContextNotification
-from binaryninjaui import ViewFrame
-
-from binaryninja.plugin import BackgroundTaskThread, PluginCommand
-
+from binaryninjaui import UIActionHandler, UIContext, UIContextNotification
 
 from collections import OrderedDict
 import socket
@@ -172,7 +163,7 @@ class NoticeHandler(object):
         idb = notice["idb"]
         try:
             idbn = int(idb)
-        except (TypeError, ValueError) as e:
+        except (TypeError, ValueError):
             self.plugin.broadcast("> index error: n should be a decimal value")
             return
 

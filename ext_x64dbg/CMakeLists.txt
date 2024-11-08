@@ -50,5 +50,4 @@ else()
         ${x64dbg_SOURCE_DIR}/pluginsdk/x32bridge.lib)
 endif()
 
-install(TARGETS ${PROJECT_NAME} DESTINATION ${PROJECT_NAME}/Library)
-install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION Library/Debug OPTIONAL)
+install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION Debug OPTIONAL)

@@ -23,23 +23,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-import binaryninjaui
-if 'qt_major_version' in binaryninjaui.__dict__ and binaryninjaui.qt_major_version == 6:
-    from PySide6 import QtCore
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QLabel, QWidget
-    from PySide6.QtGui import QKeySequence
-else:
-    from PySide2 import QtCore
-    from PySide2.QtCore import Qt
-    from PySide2.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QLabel, QWidget
-    from PySide2.QtGui import QKeySequence
 
-from binaryninjaui import UIAction, UIActionHandler
-from binaryninjaui import DockHandler, DockContextHandler
-
-
-from .rsconfig import rs_log
+from PySide6 import QtCore
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
+from binaryninjaui import UIActionHandler
+from binaryninjaui import DockContextHandler
 
 
 class SyncStatus(object):
@@ -58,20 +46,20 @@ class SyncDockWidget(QWidget, DockContextHandler):
         self.actionHandler.setupActionHandler(self)
 
         status_layout = QHBoxLayout()
-        status_layout.addWidget(QLabel('Status: '))
-        self.status = QLabel('idle')
+        status_layout.addWidget(QLabel("Status: "))
+        self.status = QLabel("idle")
         status_layout.addWidget(self.status)
         status_layout.setAlignment(QtCore.Qt.AlignCenter)
 
         client_dbg_layout = QHBoxLayout()
-        client_dbg_layout.addWidget(QLabel('Client debugger: '))
-        self.client_dbg = QLabel('n/a')
+        client_dbg_layout.addWidget(QLabel("Client debugger: "))
+        self.client_dbg = QLabel("n/a")
         client_dbg_layout.addWidget(self.client_dbg)
         client_dbg_layout.setAlignment(QtCore.Qt.AlignCenter)
 
         client_pgm_layout = QHBoxLayout()
-        client_pgm_layout.addWidget(QLabel('Client program: '))
-        self.client_pgm = QLabel('n/a')
+        client_pgm_layout.addWidget(QLabel("Client program: "))
+        self.client_pgm = QLabel("n/a")
         client_pgm_layout.addWidget(self.client_pgm)
         client_pgm_layout.setAlignment(QtCore.Qt.AlignCenter)
 
@@ -94,11 +82,11 @@ class SyncDockWidget(QWidget, DockContextHandler):
 
     def set_status(self, status):
         if status == SyncStatus.RUNNING:
-            self.status.setStyleSheet('color: green')
+            self.status.setStyleSheet("color: green")
         elif status == SyncStatus.ENABLED:
-            self.status.setStyleSheet('color: blue')
+            self.status.setStyleSheet("color: blue")
         else:
-            self.status.setStyleSheet('')
+            self.status.setStyleSheet("")
 
         self.status.setText(status)
 
@@ -111,13 +99,13 @@ class SyncDockWidget(QWidget, DockContextHandler):
 
     def reset_client(self):
         self.set_status(SyncStatus.ENABLED)
-        self.client_pgm.setText('n/a')
-        self.client_dbg.setText('n/a')
+        self.client_pgm.setText("n/a")
+        self.client_dbg.setText("n/a")
 
     def reset_status(self):
         self.set_status(SyncStatus.IDLE)
-        self.client_pgm.setText('n/a')
-        self.client_dbg.setText('n/a')
+        self.client_pgm.setText("n/a")
+        self.client_dbg.setText("n/a")
 
     @staticmethod
     def create_widget(name, parent, data=None):

@@ -25,10 +25,8 @@ SOFTWARE.
 """
 
 import os
-import sys
 import tempfile
 import logging
-from logging.handlers import RotatingFileHandler
 from collections import namedtuple
 
 import binaryninja
@@ -36,10 +34,7 @@ import binaryninja
 from binaryninja.highlight import HighlightColor
 from binaryninja.enums import HighlightStandardColor
 
-try:
-    from ConfigParser import SafeConfigParser
-except ImportError:
-    from configparser import ConfigParser as SafeConfigParser
+from configparser import ConfigParser as SafeConfigParser
 
 
 # networking settings
