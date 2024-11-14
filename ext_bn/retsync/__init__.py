@@ -47,4 +47,5 @@ if binaryninja.core_ui_enabled:
         binaryninja.log.log_to_file(LOG_LEVEL, str(log_fpath.absolute()), True)
 
     rs_info("Loading RetSync")
-    Sidebar.addSidebarWidgetType(SyncSidebarWidgetType())
+    st = SyncSidebarWidgetType()
+    Sidebar.addSidebarWidgetType(st)

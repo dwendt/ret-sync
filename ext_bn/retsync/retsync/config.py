@@ -183,8 +183,12 @@ def rs_log(s: str, lvl=logging.INFO):
         cb(msg)
 
 
-def load_configuration(pgm_path: pathlib.Path | None = None, name: str | None = None):
-    user_conf = namedtuple("user_conf", "host port alias path")
+UserConfig = namedtuple("user_conf", "host port alias path")
+
+
+def load_configuration(
+    pgm_path: pathlib.Path | None = None, name: str | None = None
+) -> UserConfig:
     host, port, alias, path = HOST, PORT, None, None
 
     # for loc in (pgm_path, "USERPROFILE", "HOME"):
@@ -208,4 +212,4 @@ def load_configuration(pgm_path: pathlib.Path | None = None, name: str | None = 
         path = confpath
         # break
 
-    return user_conf(host, port, alias, path)
+    return UserConfig(host, port, alias, path)

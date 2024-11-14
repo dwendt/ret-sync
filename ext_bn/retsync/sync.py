@@ -40,7 +40,6 @@ from typing import TYPE_CHECKING, Any
 import binaryninja
 import binaryninjaui
 from binaryninja import BinaryView
-from binaryninjaui import DockHandler, UIActionHandler
 
 if TYPE_CHECKING:
     from .retsync.ui import SyncWidget
@@ -54,6 +53,8 @@ from .retsync.config import (
     rs_log,
     rs_warn,
 )
+
+IMAGE_ALIASES: dict[str, str] = {"ntkrnlmp.exe": "ntoskrnl.exe"}
 
 
 class SyncHandler(object):
@@ -91,19 +92,20 @@ class SyncHandler(object):
             rs_log("failed to get cursor location")
 
     def req_not_implemented(self, sync):
-        rs_log(f"request type {sync['type']} not implemented")
+        rs_log(f"Request type {sync['type']} not implemented")
 
-    def parse(self, client, sync):
-        self.client = client
+    def parse(self, sync):
+        # self.client = client
         stype = sync["type"]
         if stype not in self.req_handlers:
-            rs_log("unknown sync request: %s" % stype)
+            rs_log("Unknown sync request: {stype}")
             return
 
         if not self.plugin.sync_enabled:
-            rs_debug("[-] %s request droped because no program is enabled" % stype)
+            rs_log(f"[-] {stype} request dropped because no program is enabled")
             return
 
+        rs_log(f"[+] calling {stype} request handler")
         req_handler = self.req_handlers[stype]
         req_handler(sync)
 
@@ -151,11 +153,18 @@ class NoticeHandler(object):
         rs_log("dbg err: disabling current program")
 
     def req_module(self, notice):
-        pgm: RemotePath = RemotePath(notice["path"])
+        fname = notice["path"]
+
+        if fname in IMAGE_ALIASES:
+            rs_debug(f"Resolved alias images {fname } -> { IMAGE_ALIASES[fname]}")
+            fname = IMAGE_ALIASES[fname]
+
+        pgm = RemotePath(fname)
         if not self.plugin.sync_mode_auto:
-            rs_log(f"sync mod auto off, dropping mod request ({pgm})")
-        else:
-            self.plugin.set_program(pgm)
+            rs_warn(f"sync mod auto off, dropping mod request ({pgm})")
+            return
+
+        self.plugin.set_program(pgm)
 
     def req_idb_list(self, notice):
         output = "open program(s):\n"
@@ -225,7 +234,8 @@ class RequestType(object):
     SYNC = "[sync]"
 
     @staticmethod
-    def extract(request):
+    def extract(request: str) -> None | str:
+        rs_log(f"received request '{request}'")
         if request.startswith(RequestType.NOTICE):
             return RequestType.NOTICE
         elif request.startswith(RequestType.SYNC):
@@ -234,7 +244,7 @@ class RequestType(object):
             return None
 
     @staticmethod
-    def normalize(request, tag):
+    def normalize(request: str, tag: str) -> str:
         request = request[len(tag) :]
         request = request.replace("\\", "\\\\")
         request = request.replace("\n", "")
@@ -273,11 +283,11 @@ class RequestHandler(object):
         if req_type == RequestType.NOTICE:
             self.notice_handler.parse(req_obj)
         elif req_type == RequestType.SYNC:
-            self.sync_handler.parse(client, req_obj)
+            self.sync_handler.parse(req_obj)
 
 
 class ClientHandler(asyncore.dispatcher_with_send):
-    def __init__(self, sock, request_handler):
+    def __init__(self, sock: "socket.socket", request_handler: "RequestHandler"):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.request_handler = request_handler
 
@@ -332,8 +342,8 @@ class ClientListener(asyncore.dispatcher):
 class ClientListenerTask(threading.Thread):
     def __init__(self, plugin: "SyncPlugin"):
         threading.Thread.__init__(self)
-        self.plugin = plugin
-        self.server = None
+        self.plugin: "SyncPlugin" = plugin
+        self.server: ClientListener | None = None
 
     def is_port_available(self, host: str, port: int):
         try:
@@ -392,9 +402,9 @@ class Program:
         return self.refcount == 0
 
 
-# ProgramManager is used to keep track of opened tabs
-# and programs' state (e.g. base address)
 class ProgramManager(object):
+    """ProgramManager is used to keep track of opened tabs and programs' state (e.g. base address)"""
+
     def __init__(self):
         self.opened: OrderedDict[pathlib.Path, Program] = OrderedDict()
 
@@ -415,7 +425,10 @@ class ProgramManager(object):
             del self.opened[fpath]
 
     def exists(self, pgm: pathlib.Path):
-        return pgm.name in self.opened
+        return pgm in self.opened
+
+    def __contains__(self, pgm: pathlib.Path):
+        return self.exists(pgm)
 
     def reset_bases(self):
         for _, pgm in self.opened.items():
@@ -465,7 +478,7 @@ class SyncPlugin:
         self.request_handler = RequestHandler(self)
         self.client_listener: ClientListener | None = None
         self.client: ClientHandler | None = None
-        self.user_conf = None
+        self.user_conf = load_configuration()
         self.next_tab_lock = threading.Event()
         self.pgm_mgr = ProgramManager()
 
@@ -499,20 +512,38 @@ class SyncPlugin:
         if bv == self.binary_view:
             return
 
+        # get filename, handling the case of projects
+        fname = (
+            bv.project_file.name.replace(".bndb", "")
+            if bv.project.is_open
+            else bv.file.original_filename
+        )
+
+        rs_log(f"{fname=}")
+
+        if not fname:
+            return
+
+        # handle image aliases
+        if fname in IMAGE_ALIASES:
+            rs_log(f"fix alias {fname} -> {IMAGE_ALIASES[fname]} ")
+            fname = IMAGE_ALIASES[fname]
+
         # if the view is not in the program manager, add it
-        fname = bv.file.original_filename
-        fpath = pathlib.Path(fname)
-        if not self.pgm_mgr.exists(fpath):
-            self.pgm_mgr.add(fpath)
+        pgm = pathlib.Path(fname)
+        if not self.pgm_mgr.exists(pgm):
+            self.pgm_mgr.add(pgm)
+            rs_log(f"Added {pgm}, currently opened {self.pgm_mgr.opened}")
 
         self.binary_view = bv
-        self.current_tab = fpath.name
+        self.current_tab = pgm.name
         self.base = self.binary_view.start
-        self.base_remote = self.pgm_mgr.get_base_for_program(fpath)
+        self.base_remote = self.pgm_mgr.get_base_for_program(pgm)
         if self.base_remote:
-            rs_log(f"setting remote base to {self.base_remote:#x}")
+            rs_log(f"Setting remote base to {self.base_remote:#x}")
 
-        self.pgm_target()
+        # mark it as active
+        self.set_program(pgm)
 
     def bootstrap(self, dialect: str):
         self.pgm_mgr.reset_bases()
@@ -520,7 +551,7 @@ class SyncPlugin:
 
         if dialect in config.DBG_DIALECTS:
             self.dbg_dialect = config.DBG_DIALECTS[dialect]
-            rs_log("set debugger dialect to %s, enabling hotkeys" % dialect)
+            rs_log(f"set debugger dialect to {dialect}, enabling hotkeys")
 
     def reset_client(self):
         self.sync_enabled = False
@@ -533,19 +564,21 @@ class SyncPlugin:
         rs_log(msg)
 
     def set_program(self, pgm: pathlib.Path):
+        rs_log(f"Setting active program to {pgm}")
         self.widget.set_program(pgm)
         if not self.pgm_mgr.exists(pgm):
+            rs_warn(f"{pgm} is not opened")
             return
         self.sync_enabled = True
         self.current_pgm = pgm
-        rs_log(f"set current program: {pgm}")
-        self.pgm_target_with_lock(pgm)
+        rs_log(f"Current program set to {pgm}")
+        # self.pgm_target_with_lock(pgm)
 
     def set_program_id(self, index: int):
         pgm = self.pgm_mgr.get_at(index)
         if pgm:
             self.broadcast(f'> active program is now "{pgm}" ({index})')
-            self.pgm_target_with_lock(pgm)
+            # self.pgm_target_with_lock(pgm)
         else:
             self.broadcast(f"> idb_n error: index {index} is invalid (see idblist)")
 
@@ -561,30 +594,28 @@ class SyncPlugin:
         if not self.pgm_mgr.exists(self.current_pgm):
             return False
         else:
-            self.pgm_target_with_lock(self.current_pgm)
+            # self.pgm_target_with_lock(self.current_pgm)
             return True
 
-    def pgm_target(self, pgm=None):
-        if pgm:
-            self.target_tab = pgm
+    # def pgm_target(self, pgm=None):
+    #     if pgm:
+    #         self.target_tab = pgm
 
-        if not self.target_tab:
-            return
+    #     if not self.target_tab:
+    #         return
 
-        try:
-            if self.target_tab != self.current_tab:
-                self.trigger_action("Next Tab")
-            else:
-                self.target_tab = None
-                self.next_tab_lock.set()
-        except Exception as e:
-            rs_log(f"error while switching tabs, reason: {str(e)}")
+    #     try:
+    #         if self.target_tab != self.current_tab:
+    #             self.trigger_action("Next Tab")
+    #         else:
+    #             self.target_tab = None
+    #             self.next_tab_lock.set()
+    #     except Exception as e:
+    #         rs_log(f"error while switching tabs, reason: {str(e)}")
 
-    def trigger_action(self, action: str):
-        handler = UIActionHandler().actionHandlerFromWidget(
-            DockHandler.getActiveDockHandler().parent()
-        )
-        handler.executeAction(action)
+    # def trigger_action(self, action: str):
+    #     handler = UIActionHandler().actionHandlerFromWidget(self.plugin)
+    #     handler.executeAction(action)
 
     # check if address is within a valid segment
     def is_safe(self, offset):
@@ -778,7 +809,6 @@ class SyncPlugin:
             rs_warn("already listening")
             return
 
-        self.user_conf = load_configuration()
         self.client_listener = ClientListenerTask(self)
         self.client_listener.start()
 

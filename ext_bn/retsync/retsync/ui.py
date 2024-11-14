@@ -136,7 +136,7 @@ class SyncControlWidget(QWidget):
     def __init__(self, parent: QWidget, plugin: SyncPlugin):
         QWidget.__init__(self, parent)
         self.parent = parent
-        self.rs = plugin
+        self.rs: SyncPlugin = plugin
 
         self.toolbar = QToolBar(self, parent)
         self.toolbar.setStyleSheet("QToolBar{spacing:0px;}")
