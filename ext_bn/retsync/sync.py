@@ -612,25 +612,26 @@ class SyncPlugin:
 
         return dest
 
-    # rebase address with respect to local image base
     def rebase_local(self, offset: int):
+        "rebase address with respect to local image base"
         if not (self.base == self.base_remote):
             offset = (offset - self.base_remote) + self.base
 
         return offset
 
-    # rebase address with respect to remote image base
     def rebase_remote(self, offset):
+        "rebase address with respect to remote image base"
         if not (self.base == self.base_remote):
             offset = (offset - self.base) + self.base_remote
 
         return offset
 
-    def set_remote_base(self, rbase):
+    def set_remote_base(self, rbase: int):
         self.pgm_mgr.set_base_for_program(self.current_tab, rbase)
         self.base_remote = rbase
 
-    def goto(self, base, offset):
+    def goto(self, base: int, offset: int):
+        rs_log(f"SyncPlugin::goto({base=:#x}, {offset=:#x})")
         if not self.sync_enabled:
             return
 

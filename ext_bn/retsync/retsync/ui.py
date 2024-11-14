@@ -95,14 +95,6 @@ class SyncWidget(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
-    # def shouldBeVisible(self, view_frame):
-    #     rs_debug(f"in shouldBeVisible(), {view_frame}")
-    #     # return view_frame is not None
-    #     return True
-
-    # def contextMenuEvent(self, _):
-    #     self.m_contextMenuManager.show(self.m_menu, self.actionHandler)
-
     def set_status(self, status: SyncStatus):
         match status:
             case SyncStatus.CONNECTED:
