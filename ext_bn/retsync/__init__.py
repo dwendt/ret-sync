@@ -24,69 +24,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# from collections import namedtuple
+import pathlib
+import tempfile
 
-# from PySide6.QtCore import Qt
-# from PySide6.QtGui import QKeySequence
+import binaryninja
 
-# from binaryninjaui import UIAction, UIActionHandler
+from .retsync.config import LOG_LEVEL, LOG_TO_FILE_ENABLE, rs_info
 
-# from .sync import SyncPlugin
-from .retsync.rsconfig import rs_log
+# TODO
+# - require Binja 4.x+
+# - better sync / tab mgmt
+# - better tests
+# - better icons
 
-# retsync_plugin: SyncPlugin | None = None
-
-
-# def add_commands(plugin: SyncPlugin):
-#     DbgAction = namedtuple("DbgAction", "name, key_seq, handler")
-#     plugin_actions = (
-#         DbgAction(
-#             "SyncEnable", QKeySequence(Qt.ALT | Qt.Key_S), UIAction(plugin.cmd_sync)
-#         ),
-#         DbgAction(
-#             "SyncDisable",
-#             QKeySequence(Qt.ALT | Qt.SHIFT | Qt.Key_S),
-#             UIAction(plugin.cmd_syncoff),
-#         ),
-#         DbgAction("SyncGo", QKeySequence(Qt.ALT | Qt.Key_F5), UIAction(plugin.cmd_go)),
-#         DbgAction("SyncStepOver", QKeySequence(Qt.Key_F10), UIAction(plugin.cmd_so)),
-#         DbgAction("SyncStepInto", QKeySequence(Qt.Key_F11), UIAction(plugin.cmd_si)),
-#         DbgAction(
-#             "SyncTranslate",
-#             QKeySequence(Qt.ALT | Qt.Key_F2),
-#             UIAction(plugin.cmd_translate),
-#         ),
-#         DbgAction("SyncBp", QKeySequence(Qt.Key_F2), UIAction(plugin.cmd_bp)),
-#         DbgAction(
-#             "SyncHwBp", QKeySequence(Qt.CTRL | Qt.Key_F2), UIAction(plugin.cmd_hwbp)
-#         ),
-#         DbgAction(
-#             "SyncBpOneShot", QKeySequence(Qt.ALT | Qt.Key_F3), UIAction(plugin.cmd_bp1)
-#         ),
-#         DbgAction(
-#             "SyncHwBpOneShot",
-#             QKeySequence(Qt.CTRL | Qt.Key_F3),
-#             UIAction(plugin.cmd_hwbp1),
-#         ),
-#     )
-
-#     for action in plugin_actions:
-#         UIAction.registerAction(action.name, action.key_seq)
-#         UIActionHandler.globalActions().bindAction(action.name, action.handler)
-
-#     rs_log("commands added")
-
-
-# retsync_plugin = SyncPlugin()
-# retsync_plugin.init_widget()
-# add_commands(retsync_plugin)
-
-from binaryninja import core_ui_enabled
-
-if core_ui_enabled:
+if binaryninja.core_ui_enabled:
     from binaryninjaui import Sidebar
-    from .retsync.rswidget import SyncSidebarWidgetType
-    from .retsync.rsconfig import rs_log
 
-    rs_log("Loading RetSync")
+    from .retsync.ui import SyncSidebarWidgetType
+
+    if LOG_TO_FILE_ENABLE:
+        log_fpath = pathlib.Path(tempfile.gettempdir()) / "retsync.log"
+        binaryninja.log.log_to_file(LOG_LEVEL, str(log_fpath.absolute()), True)
+
+    rs_info("Loading RetSync")
     Sidebar.addSidebarWidgetType(SyncSidebarWidgetType())

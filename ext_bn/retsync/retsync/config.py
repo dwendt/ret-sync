@@ -24,19 +24,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import logging
 import os
 import pathlib
 import tempfile
-import logging
 from collections import namedtuple
-
-import binaryninja
-
-from binaryninja.highlight import HighlightColor
-from binaryninja.enums import HighlightStandardColor
-
 from configparser import ConfigParser as SafeConfigParser
 
+import binaryninja
+from binaryninja.enums import HighlightStandardColor
+from binaryninja.highlight import HighlightColor
 
 # networking settings
 HOST = "localhost"
@@ -121,7 +118,7 @@ DBG_DIALECTS = {
 
 
 def init_logging(src):
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(LOG_LEVEL)
     name = os.path.basename(src)
     logger = logging.getLogger("retsync.plugin." + name)
 
@@ -142,26 +139,26 @@ def init_logging(src):
 
 
 def rs_debug(s):
-    rs_log(s, logging.DEBUG)
+    binaryninja.log.log_debug(s)
 
 
 def rs_info(s):
-    rs_log(s, logging.INFO)
+    binaryninja.log.log_info(s)
 
 
 def rs_warn(s):
-    rs_log(s, logging.WARNING)
+    binaryninja.log.log_warn(s)
 
 
 def rs_error(s):
-    rs_log(s, logging.ERROR)
+    binaryninja.log.log_error(s)
 
 
-def rs_encode(buffer_str):
+def rs_encode(buffer_str: str):
     return buffer_str.encode(RS_ENCODING)
 
 
-def rs_decode(buffer_bytes):
+def rs_decode(buffer_bytes: bytes):
     return buffer_bytes.decode(RS_ENCODING)
 
 

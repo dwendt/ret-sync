@@ -24,49 +24,43 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import asyncore
+import base64
+import io
+import json
 import pathlib
+import socket
+import sys
+import threading
+from collections import OrderedDict
+from dataclasses import dataclass
+from pathlib import Path as RemotePath
 from typing import TYPE_CHECKING, Any
+
 import binaryninja
 import binaryninjaui
-import PySide6
-
-from PySide6.QtCore import Qt
-
-from binaryninjaui import DockHandler
-from binaryninjaui import UIActionHandler, UIContext, UIContextNotification
-
-from collections import OrderedDict
-import socket
-import io
-import sys
-import asyncore
-import threading
-import json
-import base64
-
-from pathlib import Path as RemotePath
-from dataclasses import dataclass
 from binaryninja import BinaryView
+from binaryninjaui import DockHandler, UIActionHandler
 
 if TYPE_CHECKING:
-    from .retsync.rswidget import SyncWidget
+    from .retsync.ui import SyncWidget
 
-from .retsync import rsconfig as rsconfig
-from .retsync.rsconfig import (
-    rs_encode,
-    rs_decode,
-    rs_log,
-    rs_debug,
+from .retsync import config as config
+from .retsync.config import (
     load_configuration,
+    rs_debug,
+    rs_decode,
+    rs_encode,
+    rs_log,
     rs_warn,
 )
 
 
 class SyncHandler(object):
-
     # location request, update disassembly view
     def req_loc(self, sync):
         offset, base = sync["offset"], sync.get("base")
+        rs_log(f"in SyncHandler::req_loc({base=:#}, {offset=:#x})")
         self.plugin.goto(base, offset)
 
     def req_rbase(self, sync):
@@ -113,7 +107,7 @@ class SyncHandler(object):
         req_handler = self.req_handlers[stype]
         req_handler(sync)
 
-    def __init__(self, plugin):
+    def __init__(self, plugin: "SyncPlugin"):
         self.plugin = plugin
         self.client = None
         self.req_handlers = {
@@ -136,7 +130,6 @@ class SyncHandler(object):
 
 
 class NoticeHandler(object):
-
     def is_windows_dbg(self, dialect):
         return dialect in ["windbg", "x64_dbg", "ollydbg2"]
 
@@ -249,7 +242,6 @@ class RequestType(object):
 
 
 class RequestHandler(object):
-
     def __init__(self, plugin):
         self.plugin = plugin
         self.client_lock = threading.Lock()
@@ -285,7 +277,6 @@ class RequestHandler(object):
 
 
 class ClientHandler(asyncore.dispatcher_with_send):
-
     def __init__(self, sock, request_handler):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.request_handler = request_handler
@@ -293,14 +284,14 @@ class ClientHandler(asyncore.dispatcher_with_send):
     def handle_read(self):
         data = rs_decode(self.recv(8192))
 
-        if data and data != "":
+        if data:
             fd = io.StringIO(data)
             batch = fd.readlines()
 
             for request in batch:
                 self.request_handler.safe_parse(self, request)
         else:
-            rs_debug("handler lost client")
+            rs_warn("handler lost client")
             self.close()
 
     def handle_expt(self):
@@ -313,7 +304,6 @@ class ClientHandler(asyncore.dispatcher_with_send):
 
 
 class ClientListener(asyncore.dispatcher):
-
     def __init__(self, plugin: "SyncPlugin"):
         asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -340,7 +330,6 @@ class ClientListener(asyncore.dispatcher):
 
 
 class ClientListenerTask(threading.Thread):
-
     def __init__(self, plugin: "SyncPlugin"):
         threading.Thread.__init__(self)
         self.plugin = plugin
@@ -432,22 +421,28 @@ class ProgramManager(object):
         for _, pgm in self.opened.items():
             pgm.base = None
 
-    def get_base(
+    def get_base_for_program(
         self,
         pgm: pathlib.Path,
     ):
-        if self.exists(pgm):
-            return self.opened[pgm].base
+        return self.opened[pgm].base if self.exists(pgm) else None
 
-    def set_base(self, pgm: pathlib.Path, base: int):
-        if self.exists(pgm):
-            self.opened[pgm].base = base
+    def set_base_for_program(self, pgm: pathlib.Path, base: int):
+        if not self.exists(pgm):
+            rs_warn(f"{pgm} is not handled")
+            return
+        self.opened[pgm].base = base
 
     def get_at(self, index: int) -> pathlib.Path | None:
-        if len(self.opened) > index:
-            return list(self.opened)[index]
-        else:
+        if index >= len(self.opened):
             return None
+        return list(self.opened)[index]
+
+    def __getitem__(self, index: int):
+        item = self.get_at(index)
+        if not item:
+            raise IndexError
+        return item
 
     def as_list(self) -> OrderedDict[pathlib.Path, Program]:
         return self.opened.values()
@@ -458,19 +453,18 @@ class ProgramManager(object):
         for path_str, bv in ctx.getAvailableBinaryViews():
             assert isinstance(path_str, str)
             assert isinstance(bv, binaryninja.BinaryView)
-            self.add(path_str)
+            self.add(pathlib.Path(path_str))
         return self.opened
+
+    def __repr__(self) -> str:
+        return f"ProgramManager(opened={self.opened})"
 
 
 class SyncPlugin:
-
     def __init__(self):
-        # UIContextNotification.__init__(self)
-        # UIContext.registerNotification(self)
-
         self.request_handler = RequestHandler(self)
-        self.client_listener = None
-        self.client = None
+        self.client_listener: ClientListener | None = None
+        self.client: ClientHandler | None = None
         self.user_conf = None
         self.next_tab_lock = threading.Event()
         self.pgm_mgr = ProgramManager()
@@ -514,7 +508,7 @@ class SyncPlugin:
         self.binary_view = bv
         self.current_tab = fpath.name
         self.base = self.binary_view.start
-        self.base_remote = self.pgm_mgr.get_base(self.current_tab)
+        self.base_remote = self.pgm_mgr.get_base_for_program(fpath)
         if self.base_remote:
             rs_log(f"setting remote base to {self.base_remote:#x}")
 
@@ -524,8 +518,8 @@ class SyncPlugin:
         self.pgm_mgr.reset_bases()
         self.widget.set_connected(dialect)
 
-        if dialect in rsconfig.DBG_DIALECTS:
-            self.dbg_dialect = rsconfig.DBG_DIALECTS[dialect]
+        if dialect in config.DBG_DIALECTS:
+            self.dbg_dialect = config.DBG_DIALECTS[dialect]
             rs_log("set debugger dialect to %s, enabling hotkeys" % dialect)
 
     def reset_client(self):
@@ -606,7 +600,7 @@ class SyncPlugin:
 
             # update base address of remote module
             if self.base_remote != base:
-                self.pgm_mgr.set_base(self.current_tab, base)
+                self.pgm_mgr.set_base_for_program(self.current_tab, base)
                 self.base_remote = base
 
             dest = self.rebase_local(offset)
@@ -633,7 +627,7 @@ class SyncPlugin:
         return offset
 
     def set_remote_base(self, rbase):
-        self.pgm_mgr.set_base(self.current_tab, rbase)
+        self.pgm_mgr.set_base_for_program(self.current_tab, rbase)
         self.base_remote = rbase
 
     def goto(self, base, offset):
@@ -654,7 +648,7 @@ class SyncPlugin:
     def color_callback(self, hglt_addr):
         blocks = self.binary_view.get_basic_blocks_at(hglt_addr)
         for block in blocks:
-            block.function.set_user_instr_highlight(hglt_addr, rsconfig.CB_TRACE_COLOR)
+            block.function.set_user_instr_highlight(hglt_addr, config.CB_TRACE_COLOR)
 
     def get_cursor(self):
         if not self.view_frame:

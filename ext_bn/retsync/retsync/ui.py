@@ -24,41 +24,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# TODO require Binja 4.x+
 import enum
 import pathlib
 
-from PySide6 import QtCore
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
-from binaryninjaui import UIActionHandler
-from binaryninjaui import DockContextHandler
-
-from ..sync import SyncPlugin
-from .rsconfig import rs_debug, rs_log
-
 from binaryninjaui import (
-    SidebarWidget,
-    SidebarWidgetType,
-    SidebarWidgetLocation,
     SidebarContextSensitivity,
-    getThemeColor,
-    ThemeColor,
+    SidebarWidget,
+    SidebarWidgetLocation,
+    SidebarWidgetType,
+    UIActionHandler,
+)
+from PySide6 import QtCore
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QIcon, QImage, QPainter, QPixmap
+from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QIcon, QAction
-
-from PySide6.QtGui import QPainter, QPixmap, QBrush, QImage, QIcon
-from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QVBoxLayout, QTabWidget
-
-from PySide6 import QtCore
-from PySide6.QtGui import QPainter, QBrush, QImage
-from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QVBoxLayout
-
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QToolBar, QToolButton
-
+from ..sync import SyncPlugin
+from .config import rs_debug
 
 CURRENT_FILE = pathlib.Path(__file__)
 CURRENT_FOLDER = CURRENT_FILE.parent
@@ -74,8 +64,8 @@ class SyncStatus(enum.IntEnum):
 class SyncWidget(QWidget):
     def __init__(self, parent: QWidget):
         QWidget.__init__(self, parent)
-        # DockContextHandler.__init__(self, self, name)
-        rs_log("in SyncWidget()")
+
+        rs_debug("building SyncWidget()")
         self.actionHandler = UIActionHandler()
         self.actionHandler.setupActionHandler(self)
 
@@ -105,13 +95,13 @@ class SyncWidget(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
-    def shouldBeVisible(self, view_frame):
-        rs_debug(f"in shouldBeVisible(), {view_frame}")
-        # return view_frame is not None
-        return True
+    # def shouldBeVisible(self, view_frame):
+    #     rs_debug(f"in shouldBeVisible(), {view_frame}")
+    #     # return view_frame is not None
+    #     return True
 
-    def contextMenuEvent(self, _):
-        self.m_contextMenuManager.show(self.m_menu, self.actionHandler)
+    # def contextMenuEvent(self, _):
+    #     self.m_contextMenuManager.show(self.m_menu, self.actionHandler)
 
     def set_status(self, status: SyncStatus):
         match status:
