@@ -52,7 +52,14 @@ if TYPE_CHECKING:
     from .retsync.rswidget import SyncWidget
 
 from .retsync import rsconfig as rsconfig
-from .retsync.rsconfig import rs_encode, rs_decode, rs_log, rs_debug, load_configuration
+from .retsync.rsconfig import (
+    rs_encode,
+    rs_decode,
+    rs_log,
+    rs_debug,
+    load_configuration,
+    rs_warn,
+)
 
 
 class SyncHandler(object):
@@ -151,7 +158,7 @@ class NoticeHandler(object):
         rs_log("dbg err: disabling current program")
 
     def req_module(self, notice):
-        pgm = RemotePath(notice["path"]).name
+        pgm: RemotePath = RemotePath(notice["path"])
         if not self.plugin.sync_mode_auto:
             rs_log(f"sync mod auto off, dropping mod request ({pgm})")
         else:
@@ -200,7 +207,7 @@ class NoticeHandler(object):
     def parse(self, notice):
         ntype = notice["type"]
         if ntype not in self.req_handlers:
-            rs_log("unknown notice request: %s" % ntype)
+            rs_log(f"unknown notice request: {str(ntype)}")
             return
 
         req_handler = self.req_handlers[ntype]
@@ -487,57 +494,8 @@ class SyncPlugin:
         self.data: Any | None = None
         self.dbg_dialect: dict[str, dict[str, str]] = {}
 
-    # def init_widget(self):
-    #     dock_handler = DockHandler.getActiveDockHandler()
-    #     parent = dock_handler.parent()
-    #     assert isinstance(parent, PySide6.QtWidgets.QMainWindow)
-    #     rs_log(f"{dock_handler} -> {parent}")
-    #     self.widget = SyncWidget.create_widget("ret-sync plugin", parent)
-    #     dock_handler.addDockWidget(
-    #         self.widget, Qt.BottomDockWidgetArea, Qt.Horizontal, True, False
-    #     )
-
-    # def OnAfterOpenFile(self, context, file, frame):
-    #     self.pgm_mgr.add(file.getRawData().file.original_filename)
-    #     return True
-
-    # def OnBeforeCloseFile(self, context, file, frame):
-    #     filename = file.getRawData().file.original_filename
-    #     self.pgm_mgr.remove(filename)
-
-    #     if Path(filename).name == self.target_tab:
-    #         self.target_tab = None
-
-    #     return True
-
-    # def OnViewChange(self, context, frame, type):
-    #     if frame:
-    #         if frame != self.view_frame:
-    #             self.view_frame = frame
-    #             self.view = frame.getCurrentViewInterface()
-    #             self.data = self.view.getData()
-    #             self.binary_view = self.view_frame.actionContext().binaryView
-    #             self.current_tab = Path(self.binary_view.file.original_filename).name
-    #             self.base = self.binary_view.start
-
-    #             # attempt to restore the cached remote base
-    #             self.base_remote = self.pgm_mgr.get_base(self.current_tab)
-    #             if self.base_remote:
-    #                 rs_log(f"set remote base: {hex(self.base_remote)}")
-
-    #             self.pgm_target()
-    #         else:
-    #             pass
-    #             # TODO navigate
-    #     else:
-    #         self.base = None
-    #         self.base_remote = None
-    #         self.view = None
-    #         self.binary_view = None
-    #         self.current_tab = None
-
     def update_view(self, bv: BinaryView, tab_name: str):
-        rs_log(f"[SyncPlugin::update_view] {bv=} {tab_name=}")
+        rs_debug(f"[SyncPlugin::update_view] {bv=} {tab_name=}")
 
         # if there's no view, do nothing
         if not bv:
@@ -816,24 +774,23 @@ class SyncPlugin:
         self.generic_bp("hbp1", True)
 
     def cmd_sync(self, ctx=None):
-        rs_log("received command `cmd_sync`")
+        rs_debug("received command `cmd_sync`")
         if not self.pgm_mgr.opened:
-            rs_log("please open a tab first")
+            rs_warn("please open a tab first")
             return
 
         if self.client_listener:
-            rs_log("already listening")
+            rs_warn("already listening")
             return
 
-        # local_path = self.pgm_mgr.opened[self.current_tab].path
         self.user_conf = load_configuration()
         self.client_listener = ClientListenerTask(self)
         self.client_listener.start()
 
     def cmd_syncoff(self, _=None):
-        rs_log("received command `cmd_syncoff`")
+        rs_debug("received command `cmd_syncoff`")
         if not self.client_listener:
-            rs_log("not listening")
+            rs_warn("not listening")
             return
 
         self.client_listener.cancel()

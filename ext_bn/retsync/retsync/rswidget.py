@@ -34,7 +34,7 @@ from binaryninjaui import UIActionHandler
 from binaryninjaui import DockContextHandler
 
 from ..sync import SyncPlugin
-from .rsconfig import rs_log
+from .rsconfig import rs_debug, rs_log
 
 from binaryninjaui import (
     SidebarWidget,
@@ -106,7 +106,7 @@ class SyncWidget(QWidget):
         self.setLayout(layout)
 
     def shouldBeVisible(self, view_frame):
-        rs_log(f"in shouldBeVisible()2, {view_frame}")
+        rs_debug(f"in shouldBeVisible(), {view_frame}")
         # return view_frame is not None
         return True
 
@@ -221,7 +221,7 @@ class SyncControlWidget(QWidget):
 class SyncSideBarWidget(SidebarWidget):
     initSignal = QtCore.Signal(object, object)
 
-    def __init__(self, name, frame, data):
+    def __init__(self, name, _frame, _data):
         SidebarWidget.__init__(self, name)
         self.initSignal.connect(self.stateInit)
         self.rs = SyncPlugin()
@@ -238,15 +238,15 @@ class SyncSideBarWidget(SidebarWidget):
 
     def stateInit(self):
         self.info_widget.reset_status()
-        rs_log(
+        rs_debug(
             f"[stateInit] {self.info_widget.client_dbg=} , {self.info_widget.client_pgm=}"
         )
 
     def notifyViewChanged(self, view_frame):
         new_name: str = view_frame.getTabName() if view_frame else ""
         new_bv = view_frame.getCurrentBinaryView() if view_frame else None
-        # TODO handle change of & view tabs
-        rs_log(f"[notifyViewChanged] {new_name=} , {new_bv=}")
+
+        rs_debug(f"[notifyViewChanged] {new_name=} , {new_bv=}")
         self.rs.update_view(new_bv, new_name)
 
 

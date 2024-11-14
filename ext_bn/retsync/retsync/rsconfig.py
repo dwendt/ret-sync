@@ -145,6 +145,18 @@ def rs_debug(s):
     rs_log(s, logging.DEBUG)
 
 
+def rs_info(s):
+    rs_log(s, logging.INFO)
+
+
+def rs_warn(s):
+    rs_log(s, logging.WARNING)
+
+
+def rs_error(s):
+    rs_log(s, logging.ERROR)
+
+
 def rs_encode(buffer_str):
     return buffer_str.encode(RS_ENCODING)
 
@@ -160,14 +172,15 @@ def rs_log(s: str, lvl=logging.INFO):
     msg = f"[{LOG_PREFIX}] {s}"
     cb = None
 
-    if lvl == logging.DEBUG:
-        cb = binaryninja.log.log_debug
-    if lvl == logging.INFO:
-        cb = binaryninja.log.log_info
-    if lvl == logging.WARNING:
-        cb = binaryninja.log.log_warn
-    if lvl == logging.ERROR:
-        cb = binaryninja.log.log_error
+    match lvl:
+        case logging.DEBUG:
+            cb = binaryninja.log.log_debug
+        case logging.WARNING:
+            cb = binaryninja.log.log_warn
+        case logging.ERROR:
+            cb = binaryninja.log.log_error
+        case _:
+            cb = binaryninja.log.log_info
 
     if cb:
         cb(msg)
