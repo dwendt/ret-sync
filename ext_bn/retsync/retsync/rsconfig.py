@@ -25,6 +25,7 @@ SOFTWARE.
 """
 
 import os
+import pathlib
 import tempfile
 import logging
 from collections import namedtuple
@@ -126,7 +127,7 @@ def init_logging(src):
 
     if LOG_TO_FILE_ENABLE:
         rot_handler = logging.handlers.RotatingFileHandler(
-            os.path.join(tempfile.gettempdir(), "retsync.%s.err" % name),
+            os.path.join(tempfile.gettempdir(), f"retsync.{name}.err"),
             mode="a",
             maxBytes=8192,
             backupCount=1,
@@ -172,28 +173,29 @@ def rs_log(s: str, lvl=logging.INFO):
         cb(msg)
 
 
-def load_configuration(pgm_path, name=None):
+def load_configuration(pgm_path: pathlib.Path | None = None, name: str | None = None):
     user_conf = namedtuple("user_conf", "host port alias path")
     host, port, alias, path = HOST, PORT, None, None
 
-    for loc in (pgm_path, "USERPROFILE", "HOME"):
-        if loc in os.environ:
-            confpath = os.path.join(os.path.realpath(os.environ[loc]), ".sync")
+    # for loc in (pgm_path, "USERPROFILE", "HOME"):
+    #     if loc in os.environ:
+    #         confpath = os.path.join(os.path.realpath(os.environ[loc]), ".sync")
 
-            if os.path.exists(confpath):
-                config = SafeConfigParser({"host": HOST, "port": PORT})
-                config.read(confpath)
+    confpath = pgm_path / ".sync" if pgm_path else pathlib.Path().home() / ".sync"
+    if confpath.exists():
+        config = SafeConfigParser({"host": HOST, "port": PORT})
+        config.read(confpath)
 
-                if config.has_section("INTERFACE"):
-                    host = config.get("INTERFACE", "host")
-                    port = config.getint("INTERFACE", "port")
+        if config.has_section("INTERFACE"):
+            host = config.get("INTERFACE", "host")
+            port = config.getint("INTERFACE", "port")
 
-                if name and config.has_option("ALIASES", name):
-                    alias_ = config.get("ALIASES", name)
-                    if alias_ != "":
-                        alias = alias_
+        if name and config.has_option("ALIASES", name):
+            alias_ = config.get("ALIASES", name)
+            if alias_ != "":
+                alias = alias_
 
-                path = confpath
-                break
+        path = confpath
+        # break
 
     return user_conf(host, port, alias, path)

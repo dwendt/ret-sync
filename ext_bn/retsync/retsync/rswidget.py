@@ -24,24 +24,58 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+# TODO require Binja 4.x+
+import enum
+import pathlib
+
 from PySide6 import QtCore
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
 from binaryninjaui import UIActionHandler
 from binaryninjaui import DockContextHandler
 
+from ..sync import SyncPlugin
+from .rsconfig import rs_log
 
-class SyncStatus(object):
-    IDLE = "idle"
-    ENABLED = "listening"
-    RUNNING = "connected"
+from binaryninjaui import (
+    SidebarWidget,
+    SidebarWidgetType,
+    SidebarWidgetLocation,
+    SidebarContextSensitivity,
+    getThemeColor,
+    ThemeColor,
+)
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap, QIcon, QAction
+
+from PySide6.QtGui import QPainter, QPixmap, QBrush, QImage, QIcon
+from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QVBoxLayout, QTabWidget
+
+from PySide6 import QtCore
+from PySide6.QtGui import QPainter, QBrush, QImage
+from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QVBoxLayout
+
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QToolBar, QToolButton
 
 
-# based on hellodockwidget.py
-# from https://github.com/Vector35/binaryninja-api/
-class SyncDockWidget(QWidget, DockContextHandler):
-    def __init__(self, parent, name, data):
+CURRENT_FILE = pathlib.Path(__file__)
+CURRENT_FOLDER = CURRENT_FILE.parent
+ASSETS_FOLDER = CURRENT_FOLDER / "assets"
+
+
+class SyncStatus(enum.IntEnum):
+    IDLE = 1
+    LISTENING = 2
+    CONNECTED = 3
+
+
+class SyncWidget(QWidget):
+    def __init__(self, parent: QWidget):
         QWidget.__init__(self, parent)
-        DockContextHandler.__init__(self, self, name)
+        # DockContextHandler.__init__(self, self, name)
+        rs_log("in SyncWidget()")
         self.actionHandler = UIActionHandler()
         self.actionHandler.setupActionHandler(self)
 
@@ -72,33 +106,33 @@ class SyncDockWidget(QWidget, DockContextHandler):
         self.setLayout(layout)
 
     def shouldBeVisible(self, view_frame):
-        if view_frame is None:
-            return False
-        else:
-            return True
+        rs_log(f"in shouldBeVisible()2, {view_frame}")
+        # return view_frame is not None
+        return True
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, _):
         self.m_contextMenuManager.show(self.m_menu, self.actionHandler)
 
-    def set_status(self, status):
-        if status == SyncStatus.RUNNING:
-            self.status.setStyleSheet("color: green")
-        elif status == SyncStatus.ENABLED:
-            self.status.setStyleSheet("color: blue")
-        else:
-            self.status.setStyleSheet("")
+    def set_status(self, status: SyncStatus):
+        match status:
+            case SyncStatus.CONNECTED:
+                self.status.setStyleSheet("color: green")
+            case SyncStatus.LISTENING:
+                self.status.setStyleSheet("color: blue")
+            case _:
+                self.status.setStyleSheet("")
 
-        self.status.setText(status)
+        self.status.setText(status.name)
 
-    def set_connected(self, dialect):
-        self.set_status(SyncStatus.RUNNING)
+    def set_connected(self, dialect: str):
+        self.set_status(SyncStatus.CONNECTED)
         self.client_dbg.setText(dialect)
 
-    def set_program(self, pgm):
-        self.client_pgm.setText(pgm)
+    def set_program(self, pgm: pathlib.Path):
+        self.client_pgm.setText(pgm.name)
 
     def reset_client(self):
-        self.set_status(SyncStatus.ENABLED)
+        self.set_status(SyncStatus.LISTENING)
         self.client_pgm.setText("n/a")
         self.client_dbg.setText("n/a")
 
@@ -107,6 +141,135 @@ class SyncDockWidget(QWidget, DockContextHandler):
         self.client_pgm.setText("n/a")
         self.client_dbg.setText("n/a")
 
-    @staticmethod
-    def create_widget(name, parent, data=None):
-        return SyncDockWidget(parent, name, data)
+
+def open_file_as_icon(path: pathlib.Path) -> QImage:
+    pixmap = QPixmap(path)
+    icon = QIcon()
+    icon.addPixmap(pixmap, QIcon.Normal)
+    icon.addPixmap(pixmap, QIcon.Disabled)
+    return icon
+
+
+class SyncControlWidget(QWidget):
+    def __init__(self, parent: QWidget, plugin: SyncPlugin):
+        QWidget.__init__(self, parent)
+        self.parent = parent
+        self.rs = plugin
+
+        self.toolbar = QToolBar(self, parent)
+        self.toolbar.setStyleSheet("QToolBar{spacing:0px;}")
+        maxheight = 24
+
+        # ----
+        self.toolbar.btnStart = QToolButton(self.toolbar)
+        self.toolbar.btnStart.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.toolbar.btnStart.setMaximumHeight(maxheight)
+
+        self.toolbar.btnStart.actionStart = QAction("Start Sync", self.toolbar)
+        self.toolbar.btnStart.actionStart.triggered.connect(self.rs.cmd_sync)
+        self.toolbar.btnStart.actionStart.setIcon(
+            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+        )
+
+        self.toolbar.btnStart.setDefaultAction(self.toolbar.btnStart.actionStart)
+        self.toolbar.addWidget(self.toolbar.btnStart)
+        # ----
+
+        # ----
+        self.toolbar.btnStopInto = QToolButton(self.toolbar)
+        self.toolbar.btnStopInto.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.toolbar.btnStopInto.setMaximumHeight(maxheight)
+
+        self.toolbar.btnStopInto.actionStep = QAction("Stop Sync", self.toolbar)
+        self.toolbar.btnStopInto.actionStep.triggered.connect(self.rs.cmd_syncoff)
+        self.toolbar.btnStopInto.actionStep.setIcon(
+            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+        )
+
+        self.toolbar.btnStopInto.setDefaultAction(self.toolbar.btnStopInto.actionStep)
+        self.toolbar.addWidget(self.toolbar.btnStopInto)
+        # ----
+
+        # TODO handle the other commands from `SyncPlugin`
+
+        self.actionHandler = UIActionHandler()
+        self.actionHandler.setupActionHandler(self)
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.toolbar)
+        self.setLayout(self.layout)
+
+    def stateInit(self, arch, state):
+        pass
+
+    def stateReset(self):
+        pass
+
+    def stateUpdate(self, state):
+        pass
+
+    def notifytab(self, newName):
+        pass
+
+    def notifyOffsetChanged(self, offset):
+        pass
+
+    def shouldBeVisible(self, view_frame):
+        return view_frame is not None
+
+
+class SyncSideBarWidget(SidebarWidget):
+    initSignal = QtCore.Signal(object, object)
+
+    def __init__(self, name, frame, data):
+        SidebarWidget.__init__(self, name)
+        self.initSignal.connect(self.stateInit)
+        self.rs = SyncPlugin()
+        self.control_widget = SyncControlWidget(self, self.rs)
+        self.info_widget = SyncWidget(self)
+        self.rs.widget = self.info_widget
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.control_widget)
+        self.layout.addWidget(self.info_widget)
+        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.layout)
+
+    def stateInit(self):
+        self.info_widget.reset_status()
+        rs_log(
+            f"[stateInit] {self.info_widget.client_dbg=} , {self.info_widget.client_pgm=}"
+        )
+
+    def notifyViewChanged(self, view_frame):
+        new_name: str = view_frame.getTabName() if view_frame else ""
+        new_bv = view_frame.getCurrentBinaryView() if view_frame else None
+        # TODO handle change of & view tabs
+        rs_log(f"[notifyViewChanged] {new_name=} , {new_bv=}")
+        self.rs.update_view(new_bv, new_name)
+
+
+class SyncSidebarWidgetType(SidebarWidgetType):
+    name = "RetSync Manager"
+
+    def __init__(self):
+        path_icon = ASSETS_FOLDER / "icon.svg"
+
+        renderer = QSvgRenderer(path_icon.as_posix())
+        icon = QImage(56, 56, QImage.Format_ARGB32)
+        icon.fill(0x463F3F)
+
+        p = QPainter(icon)
+        renderer.render(p)
+        p.end()
+        SidebarWidgetType.__init__(self, icon, SyncSidebarWidgetType.name)
+
+    def contextSensitivity(self):
+        return SidebarContextSensitivity.SelfManagedSidebarContext
+
+    def defaultLocation(self):
+        return SidebarWidgetLocation.RightContent
+
+    def createWidget(self, frame, data):
+        return SyncSideBarWidget(SyncSidebarWidgetType.name, frame, data)

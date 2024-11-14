@@ -29,4 +29,5 @@ if(MSVC)
     target_link_options(${PROJECT_NAME} PUBLIC /DEF:${PROJECT_ROOT_DIR}/sync/sync.def)
 endif()
 
+install(TARGETS ${PROJECT_NAME} DESTINATION Library)
 install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION Debug OPTIONAL)

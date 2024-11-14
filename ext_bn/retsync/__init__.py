@@ -24,57 +24,69 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from collections import namedtuple
+# from collections import namedtuple
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence
+# from PySide6.QtCore import Qt
+# from PySide6.QtGui import QKeySequence
 
-from binaryninjaui import UIAction, UIActionHandler
+# from binaryninjaui import UIAction, UIActionHandler
 
-from .sync import SyncPlugin
+# from .sync import SyncPlugin
 from .retsync.rsconfig import rs_log
 
-
-def add_commands(plugin: SyncPlugin):
-    DbgAction = namedtuple("DbgAction", "name, key_seq, handler")
-    plugin_actions = (
-        DbgAction(
-            "SyncEnable", QKeySequence(Qt.ALT | Qt.Key_S), UIAction(plugin.cmd_sync)
-        ),
-        DbgAction(
-            "SyncDisable",
-            QKeySequence(Qt.ALT | Qt.SHIFT | Qt.Key_S),
-            UIAction(plugin.cmd_syncoff),
-        ),
-        DbgAction("SyncGo", QKeySequence(Qt.ALT | Qt.Key_F5), UIAction(plugin.cmd_go)),
-        DbgAction("SyncStepOver", QKeySequence(Qt.Key_F10), UIAction(plugin.cmd_so)),
-        DbgAction("SyncStepInto", QKeySequence(Qt.Key_F11), UIAction(plugin.cmd_si)),
-        DbgAction(
-            "SyncTranslate",
-            QKeySequence(Qt.ALT | Qt.Key_F2),
-            UIAction(plugin.cmd_translate),
-        ),
-        DbgAction("SyncBp", QKeySequence(Qt.Key_F2), UIAction(plugin.cmd_bp)),
-        DbgAction(
-            "SyncHwBp", QKeySequence(Qt.CTRL | Qt.Key_F2), UIAction(plugin.cmd_hwbp)
-        ),
-        DbgAction(
-            "SyncBpOneShot", QKeySequence(Qt.ALT | Qt.Key_F3), UIAction(plugin.cmd_bp1)
-        ),
-        DbgAction(
-            "SyncHwBpOneShot",
-            QKeySequence(Qt.CTRL | Qt.Key_F3),
-            UIAction(plugin.cmd_hwbp1),
-        ),
-    )
-
-    for action in plugin_actions:
-        UIAction.registerAction(action.name, action.key_seq)
-        UIActionHandler.globalActions().bindAction(action.name, action.handler)
-
-    rs_log("commands added")
+# retsync_plugin: SyncPlugin | None = None
 
 
-retsync_plugin = SyncPlugin()
-retsync_plugin.init_widget()
-add_commands(retsync_plugin)
+# def add_commands(plugin: SyncPlugin):
+#     DbgAction = namedtuple("DbgAction", "name, key_seq, handler")
+#     plugin_actions = (
+#         DbgAction(
+#             "SyncEnable", QKeySequence(Qt.ALT | Qt.Key_S), UIAction(plugin.cmd_sync)
+#         ),
+#         DbgAction(
+#             "SyncDisable",
+#             QKeySequence(Qt.ALT | Qt.SHIFT | Qt.Key_S),
+#             UIAction(plugin.cmd_syncoff),
+#         ),
+#         DbgAction("SyncGo", QKeySequence(Qt.ALT | Qt.Key_F5), UIAction(plugin.cmd_go)),
+#         DbgAction("SyncStepOver", QKeySequence(Qt.Key_F10), UIAction(plugin.cmd_so)),
+#         DbgAction("SyncStepInto", QKeySequence(Qt.Key_F11), UIAction(plugin.cmd_si)),
+#         DbgAction(
+#             "SyncTranslate",
+#             QKeySequence(Qt.ALT | Qt.Key_F2),
+#             UIAction(plugin.cmd_translate),
+#         ),
+#         DbgAction("SyncBp", QKeySequence(Qt.Key_F2), UIAction(plugin.cmd_bp)),
+#         DbgAction(
+#             "SyncHwBp", QKeySequence(Qt.CTRL | Qt.Key_F2), UIAction(plugin.cmd_hwbp)
+#         ),
+#         DbgAction(
+#             "SyncBpOneShot", QKeySequence(Qt.ALT | Qt.Key_F3), UIAction(plugin.cmd_bp1)
+#         ),
+#         DbgAction(
+#             "SyncHwBpOneShot",
+#             QKeySequence(Qt.CTRL | Qt.Key_F3),
+#             UIAction(plugin.cmd_hwbp1),
+#         ),
+#     )
+
+#     for action in plugin_actions:
+#         UIAction.registerAction(action.name, action.key_seq)
+#         UIActionHandler.globalActions().bindAction(action.name, action.handler)
+
+#     rs_log("commands added")
+
+
+# retsync_plugin = SyncPlugin()
+# retsync_plugin.init_widget()
+# add_commands(retsync_plugin)
+
+from binaryninja import core_ui_enabled
+
+if core_ui_enabled:
+    from binaryninjaui import Sidebar
+    from .retsync.rswidget import SyncSidebarWidgetType
+    from .retsync.rsconfig import rs_log
+
+    rs_log("Loading RetSync")
+    Sidebar.addSidebarWidgetType(SyncSidebarWidgetType())

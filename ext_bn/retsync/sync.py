@@ -24,8 +24,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import pathlib
+from typing import TYPE_CHECKING, Any
 import binaryninja
 import binaryninjaui
+import PySide6
 
 from PySide6.QtCore import Qt
 
@@ -40,13 +43,16 @@ import asyncore
 import threading
 import json
 import base64
-from pathlib import Path
+
 from pathlib import Path as RemotePath
 from dataclasses import dataclass
+from binaryninja import BinaryView
+
+if TYPE_CHECKING:
+    from .retsync.rswidget import SyncWidget
 
 from .retsync import rsconfig as rsconfig
 from .retsync.rsconfig import rs_encode, rs_decode, rs_log, rs_debug, load_configuration
-from .retsync.rswidget import SyncDockWidget
 
 
 class SyncHandler(object):
@@ -310,10 +316,12 @@ class ClientListener(asyncore.dispatcher):
 
     def handle_accept(self):
         pair = self.accept()
-        if pair is not None:
-            sock, addr = pair
-            rs_log(f"incoming connection from {addr!r}")
-            self.plugin.client = ClientHandler(sock, self.plugin.request_handler)
+        if not pair:
+            return
+
+        sock, addr = pair
+        rs_log(f"incoming connection from {addr!r}")
+        self.plugin.client = ClientHandler(sock, self.plugin.request_handler)
 
     def handle_expt(self):
         rs_log("listener error")
@@ -331,14 +339,15 @@ class ClientListenerTask(threading.Thread):
         self.plugin = plugin
         self.server = None
 
-    def is_port_available(self, host, port):
+    def is_port_available(self, host: str, port: int):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if sys.platform == "win32":
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
             sock.bind((host, port))
             return True
-        except Exception:
+        except Exception as e:
+            rs_log(f"bind() failed, reason: {str(e)}")
             return False
         finally:
             sock.close()
@@ -350,6 +359,10 @@ class ClientListenerTask(threading.Thread):
             rs_log(f"aborting, port {self.plugin.user_conf.port} already in use")
             self.plugin.cmd_syncoff()
             return
+
+        rs_debug(
+            f"starting server on {self.plugin.user_conf.host}:{self.plugin.user_conf.port}"
+        )
 
         try:
             self.server = ClientListener(self.plugin)
@@ -371,7 +384,7 @@ class ClientListenerTask(threading.Thread):
 
 @dataclass
 class Program:
-    path: Path
+    path: pathlib.Path
     base: int = None
     refcount: int = 1
 
@@ -387,47 +400,49 @@ class Program:
 # and programs' state (e.g. base address)
 class ProgramManager(object):
     def __init__(self):
-        self.opened: OrderedDict[str, Program] = OrderedDict()
+        self.opened: OrderedDict[pathlib.Path, Program] = OrderedDict()
 
-    def add(self, file):
-        ppath = Path(file)
-        if ppath.name in self.opened:
+    def add(self, fpath: pathlib.Path):
+        if fpath.name in self.opened:
             rs_log(
-                f'name collision ({ppath.name}):\n  - new:      "{ppath}"\n  - existing: "{self.opened[ppath.name].path}"'
+                f'name collision ({fpath.name}):\n  - new:      "{fpath}"\n  - existing: "{self.opened[fpath.name].path}"'
             )
             rs_log("warning, tab switching may not work as expected")
-            self.opened[ppath.name].lock()
+            self.opened[fpath].lock()
         else:
-            self.opened[ppath.name] = Program(ppath)
+            self.opened[fpath] = Program(fpath)
 
-    def remove(self, file):
-        pgm = Path(file).name
-        if pgm in self.opened:
-            if self.opened[pgm].release():
-                del self.opened[pgm]
+    def remove(self, fpath: pathlib.Path):
+        if fpath not in self.opened:
+            return
+        if self.opened[fpath].release():
+            del self.opened[fpath]
 
-    def exists(self, pgm):
-        return Path(pgm).name in self.opened
+    def exists(self, pgm: pathlib.Path):
+        return pgm.name in self.opened
 
     def reset_bases(self):
         for _, pgm in self.opened.items():
             pgm.base = None
 
-    def get_base(self, pgm):
+    def get_base(
+        self,
+        pgm: pathlib.Path,
+    ):
         if self.exists(pgm):
             return self.opened[pgm].base
 
-    def set_base(self, pgm, base):
+    def set_base(self, pgm: pathlib.Path, base: int):
         if self.exists(pgm):
             self.opened[pgm].base = base
 
-    def get_at(self, index):
+    def get_at(self, index: int) -> pathlib.Path | None:
         if len(self.opened) > index:
             return list(self.opened)[index]
         else:
             return None
 
-    def as_list(self):
+    def as_list(self) -> OrderedDict[pathlib.Path, Program]:
         return self.opened.values()
 
     def list_dyn(self):
@@ -440,83 +455,114 @@ class ProgramManager(object):
         return self.opened
 
 
-class SyncPlugin(UIContextNotification):
+class SyncPlugin:
 
     def __init__(self):
-        UIContextNotification.__init__(self)
-        UIContext.registerNotification(self)
+        # UIContextNotification.__init__(self)
+        # UIContext.registerNotification(self)
+
         self.request_handler = RequestHandler(self)
         self.client_listener = None
         self.client = None
+        self.user_conf = None
         self.next_tab_lock = threading.Event()
         self.pgm_mgr = ProgramManager()
 
         # binary ninja objects
-        self.widget = None
+        self.widget: "SyncWidget" | None = None
         self.view_frame = None
         self.view = None
-        self.binary_view = None
+        self.binary_view: BinaryView | None = None
         self.frame = None
 
         # context
         self.current_tab = None
         self.current_pgm = None
         self.target_tab = None
-        self.base = None
-        self.base_remote = None
+        self.base: int | None = None
+        self.base_remote: int | None = None
         self.sync_enabled = False
         self.sync_mode_auto = True
         self.cb_trace_enabled = False
+        self.data: Any | None = None
+        self.dbg_dialect: dict[str, dict[str, str]] = {}
 
-    def init_widget(self):
-        dock_handler = DockHandler.getActiveDockHandler()
-        parent = dock_handler.parent()
-        rs_log(str(parent))
-        self.widget = SyncDockWidget.create_widget("ret-sync plugin", parent)
-        dock_handler.addDockWidget(
-            self.widget, Qt.BottomDockWidgetArea, Qt.Horizontal, True, False
-        )
+    # def init_widget(self):
+    #     dock_handler = DockHandler.getActiveDockHandler()
+    #     parent = dock_handler.parent()
+    #     assert isinstance(parent, PySide6.QtWidgets.QMainWindow)
+    #     rs_log(f"{dock_handler} -> {parent}")
+    #     self.widget = SyncWidget.create_widget("ret-sync plugin", parent)
+    #     dock_handler.addDockWidget(
+    #         self.widget, Qt.BottomDockWidgetArea, Qt.Horizontal, True, False
+    #     )
 
-    def OnAfterOpenFile(self, context, file, frame):
-        self.pgm_mgr.add(file.getRawData().file.original_filename)
-        return True
+    # def OnAfterOpenFile(self, context, file, frame):
+    #     self.pgm_mgr.add(file.getRawData().file.original_filename)
+    #     return True
 
-    def OnBeforeCloseFile(self, context, file, frame):
-        filename = file.getRawData().file.original_filename
-        self.pgm_mgr.remove(filename)
+    # def OnBeforeCloseFile(self, context, file, frame):
+    #     filename = file.getRawData().file.original_filename
+    #     self.pgm_mgr.remove(filename)
 
-        if Path(filename).name == self.target_tab:
-            self.target_tab = None
+    #     if Path(filename).name == self.target_tab:
+    #         self.target_tab = None
 
-        return True
+    #     return True
 
-    def OnViewChange(self, context, frame, type):
-        if frame:
-            if frame != self.view_frame:
-                self.view_frame = frame
-                self.view = frame.getCurrentViewInterface()
-                self.data = self.view.getData()
-                self.binary_view = self.view_frame.actionContext().binaryView
-                self.current_tab = Path(self.binary_view.file.original_filename).name
-                self.base = self.binary_view.start
+    # def OnViewChange(self, context, frame, type):
+    #     if frame:
+    #         if frame != self.view_frame:
+    #             self.view_frame = frame
+    #             self.view = frame.getCurrentViewInterface()
+    #             self.data = self.view.getData()
+    #             self.binary_view = self.view_frame.actionContext().binaryView
+    #             self.current_tab = Path(self.binary_view.file.original_filename).name
+    #             self.base = self.binary_view.start
 
-                # attempt to restore the cached remote base
-                self.base_remote = self.pgm_mgr.get_base(self.current_tab)
-                if self.base_remote:
-                    rs_log(f"set remote base: {hex(self.base_remote)}")
+    #             # attempt to restore the cached remote base
+    #             self.base_remote = self.pgm_mgr.get_base(self.current_tab)
+    #             if self.base_remote:
+    #                 rs_log(f"set remote base: {hex(self.base_remote)}")
 
-                self.pgm_target()
-            else:
-                pass
-                # TODO navigate
-        else:
-            self.base = None
-            self.base_remote = None
-            self.view = None
-            self.binary_view = None
-            self.current_tab = None
+    #             self.pgm_target()
+    #         else:
+    #             pass
+    #             # TODO navigate
+    #     else:
+    #         self.base = None
+    #         self.base_remote = None
+    #         self.view = None
+    #         self.binary_view = None
+    #         self.current_tab = None
 
-    def bootstrap(self, dialect):
+    def update_view(self, bv: BinaryView, tab_name: str):
+        rs_log(f"[SyncPlugin::update_view] {bv=} {tab_name=}")
+
+        # if there's no view, do nothing
+        if not bv:
+            return
+
+        # if the view is the same, do nothing
+        if bv == self.binary_view:
+            return
+
+        # if the view is not in the program manager, add it
+        fname = bv.file.original_filename
+        fpath = pathlib.Path(fname)
+        if not self.pgm_mgr.exists(fpath):
+            self.pgm_mgr.add(fpath)
+
+        self.binary_view = bv
+        self.current_tab = fpath.name
+        self.base = self.binary_view.start
+        self.base_remote = self.pgm_mgr.get_base(self.current_tab)
+        if self.base_remote:
+            rs_log(f"setting remote base to {self.base_remote:#x}")
+
+        self.pgm_target()
+
+    def bootstrap(self, dialect: str):
         self.pgm_mgr.reset_bases()
         self.widget.set_connected(dialect)
 
@@ -534,7 +580,7 @@ class SyncPlugin(UIContextNotification):
         self.client.send(rs_encode(msg))
         rs_log(msg)
 
-    def set_program(self, pgm):
+    def set_program(self, pgm: pathlib.Path):
         self.widget.set_program(pgm)
         if not self.pgm_mgr.exists(pgm):
             return
@@ -543,7 +589,7 @@ class SyncPlugin(UIContextNotification):
         rs_log(f"set current program: {pgm}")
         self.pgm_target_with_lock(pgm)
 
-    def set_program_id(self, index):
+    def set_program_id(self, index: int):
         pgm = self.pgm_mgr.get_at(index)
         if pgm:
             self.broadcast(f'> active program is now "{pgm}" ({index})')
@@ -593,11 +639,11 @@ class SyncPlugin(UIContextNotification):
         return self.binary_view.is_valid_offset(offset)
 
     # rebase (and update) address with respect to local image base
-    def rebase(self, base, offset):
+    def rebase(self, base: int, offset: int) -> None | int:
         if base is not None:
             # check for non-compliant debugger client
             if base > offset:
-                rs_log("unsafe addr: 0x%x > 0x%x" % (base, offset))
+                rs_log(f"unsafe addr: {base=:#x} > {offset=:#x}")
                 return None
 
             # update base address of remote module
@@ -606,15 +652,16 @@ class SyncPlugin(UIContextNotification):
                 self.base_remote = base
 
             dest = self.rebase_local(offset)
+            assert isinstance(dest, int)
 
         if not self.is_safe(dest):
-            rs_log("unsafe addr: 0x%x not in valid segment" % dest)
+            rs_log(f"unsafe addr: {dest:#x} not in valid segment")
             return None
 
         return dest
 
     # rebase address with respect to local image base
-    def rebase_local(self, offset):
+    def rebase_local(self, offset: int):
         if not (self.base == self.base_remote):
             offset = (offset - self.base_remote) + self.base
 
@@ -657,7 +704,7 @@ class SyncPlugin(UIContextNotification):
         offset = self.view_frame.getCurrentOffset()
         return self.rebase_remote(offset)
 
-    def add_cmt(self, base, offset, cmt):
+    def add_cmt(self, base: int, offset: int, cmt: str):
         cmt_addr = self.rebase(base, offset)
         if cmt_addr:
             in_place = self.binary_view.get_comment_at(cmt_addr)
@@ -769,6 +816,7 @@ class SyncPlugin(UIContextNotification):
         self.generic_bp("hbp1", True)
 
     def cmd_sync(self, ctx=None):
+        rs_log("received command `cmd_sync`")
         if not self.pgm_mgr.opened:
             rs_log("please open a tab first")
             return
@@ -777,15 +825,17 @@ class SyncPlugin(UIContextNotification):
             rs_log("already listening")
             return
 
-        local_path = str(self.pgm_mgr.opened[self.current_tab].path)
-        self.user_conf = load_configuration(local_path)
+        # local_path = self.pgm_mgr.opened[self.current_tab].path
+        self.user_conf = load_configuration()
         self.client_listener = ClientListenerTask(self)
         self.client_listener.start()
 
-    def cmd_syncoff(self, ctx=None):
-        if self.client_listener:
-            self.client_listener.cancel()
-            self.client_listener = None
-            self.widget.reset_status()
-        else:
+    def cmd_syncoff(self, _=None):
+        rs_log("received command `cmd_syncoff`")
+        if not self.client_listener:
             rs_log("not listening")
+            return
+
+        self.client_listener.cancel()
+        self.client_listener = None
+        self.widget.reset_status()
