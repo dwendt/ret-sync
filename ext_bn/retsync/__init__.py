@@ -46,12 +46,12 @@ from .retsync.ui import SyncSidebarWidgetType
 
 # TODO
 # - fix tab switch
-# - add more commands
 # - replace icons
 
 
 def register_retsync_settings() -> None:
     all_settings: dict[str, str] = {
+        "AutoStart": """{ "title" : "Auto Start", "description" : "Automatically start RetSync when Binary Ninja opens", "type" : "boolean", "default" : false, "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}""",
         "ServerHost": f"""{{ "title" : "TCP Listen Host", "description" : "Interface to listen on", "type" : "string", "default" : "{DEFAULT_HOST}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "ServerPort": f"""{{ "title" : "TCP Listen Port", "description" : "TCP port to listen on", "type" : "number", "minValue": 1, "maxValue": 65535,  "default" : {DEFAULT_PORT}, "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "TraceColor": f"""{{ "title" : "Current Instruction Color", "description" : "When synchronized, use the following color for highlight the current instruction. The valid values are: none, blue, cyan, red, magenta, yellow, orange, white, black", "type" : "string", "default" : "{DEFAULT_TRACE_COLOR}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",

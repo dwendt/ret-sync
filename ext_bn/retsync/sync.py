@@ -89,23 +89,22 @@ class SyncHandler(object):
         if cursor_addr:
             self.client.send(rs_encode(hex(cursor_addr)))
         else:
-            rs_debug("failed to get cursor location")
+            rs_error("failed to get cursor location")
 
     def req_not_implemented(self, sync):
-        rs_debug(f"Request type {sync['type']} not implemented")
+        rs_warn(f"Request type {sync['type']} not implemented")
 
     def parse(self, sync):
-        # self.client = client
         stype = sync["type"]
         if stype not in self.req_handlers:
-            rs_debug("Unknown sync request: {stype}")
+            rs_error(f"Unknown sync request: {stype}")
             return
 
         if not self.plugin.sync_enabled:
-            rs_debug(f"[-] {stype} request dropped because no program is enabled")
+            rs_warn(f"{stype} request dropped because no program is enabled")
             return
 
-        rs_debug(f"[+] calling {stype} request handler")
+        rs_debug(f"calling {stype} request handler")
         req_handler = self.req_handlers[stype]
         req_handler(sync)
 
@@ -579,7 +578,6 @@ class SyncPlugin:
 
     def broadcast(self, msg):
         self.client.send(rs_encode(msg))
-        rs_debug(msg)
 
     def set_program(self, pgm: pathlib.Path):
         rs_debug(f"Setting active program to {pgm}")
@@ -688,12 +686,12 @@ class SyncPlugin:
             goto_addr = self.rebase(base, offset)
             view = self.binary_view.view
             if not self.binary_view.navigate(view, goto_addr):
-                rs_debug(f"goto {hex(goto_addr)} error")
+                rs_error(f"goto {hex(goto_addr)} error")
 
             if self.cb_trace_enabled:
                 self.color_callback(goto_addr)
         else:
-            rs_debug("goto: no view available")
+            rs_error("goto: no view available")
 
     def color_callback(self, hglt_addr: int):
         color_str = (
@@ -759,7 +757,7 @@ class SyncPlugin:
         if self.sync_enabled and self.dbg_dialect:
             return True
 
-        rs_debug("commands not available")
+        rs_error("commands not available")
         return False
 
     # send a command to the debugger

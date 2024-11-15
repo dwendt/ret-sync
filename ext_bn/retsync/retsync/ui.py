@@ -241,12 +241,22 @@ class SyncSideBarWidget(SidebarWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
+        self.initialization_done = False
+
     def notifyViewChanged(self, view_frame: binaryninjaui.ViewFrame):
         if not view_frame:
             return
         new_name: str = view_frame.getTabName()
         new_bv: binaryninja.BinaryView = view_frame.getCurrentBinaryView()
         self.rs.update_view(new_bv, new_name)
+
+        # trigger on first view update
+        if not self.initialization_done:
+            # was autostart requested ?
+            if binaryninja.Settings().get_bool("retsync.AutoStart"):
+                self.rs.cmd_sync()
+
+            self.initialization_done = True
 
 
 class SyncSidebarWidgetType(SidebarWidgetType):
