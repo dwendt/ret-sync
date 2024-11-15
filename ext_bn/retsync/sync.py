@@ -45,14 +45,16 @@ if TYPE_CHECKING:
     from .retsync.ui import SyncWidget
 
 from .retsync import config as config
-from .retsync.config import (
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_TRACE_COLOR,
-    rs_decode,
-    rs_encode,
-)
-from .retsync.log import rs_debug, rs_log, rs_warn
+from .retsync.config import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TRACE_COLOR
+from .retsync.log import rs_debug, rs_error, rs_info, rs_log, rs_warn
+
+
+def rs_encode(buffer_str: str, encoding="utf-8"):
+    return buffer_str.encode(encoding)
+
+
+def rs_decode(buffer_bytes: bytes, encoding="utf-8"):
+    return buffer_bytes.decode(encoding)
 
 
 class SyncHandler(object):
@@ -271,7 +273,7 @@ class RequestHandler(object):
         req_type = RequestType.extract(request)
 
         if not req_type:
-            rs_log("unknown request type")
+            rs_warn("Unsupported requested type")
             return
 
         payload = RequestType.normalize(request, req_type)
@@ -279,7 +281,7 @@ class RequestHandler(object):
         try:
             req_obj = json.loads(payload)
         except ValueError:
-            rs_log("failed to parse request JSON\n %s\n" % payload)
+            rs_error(f"Failed to parse request JSON\n{payload}")
             return
 
         rs_debug(f"REQUEST{req_type}:{req_obj['type']}")
@@ -291,9 +293,15 @@ class RequestHandler(object):
 
 
 class ClientHandler(asyncore.dispatcher_with_send):
-    def __init__(self, sock: "socket.socket", request_handler: "RequestHandler"):
+    def __init__(
+        self,
+        sock: "socket.socket",
+        request_handler: "RequestHandler",
+        addr: tuple[str, int],
+    ):
         asyncore.dispatcher_with_send.__init__(self, sock)
         self.request_handler = request_handler
+        self.addr = addr
 
     def handle_read(self):
         data = rs_decode(self.recv(8192))
@@ -330,19 +338,20 @@ class ClientListener(asyncore.dispatcher):
 
     def handle_accept(self):
         pair = self.accept()
-        if not pair:
+        if pair is None:
+            rs_warn("Client accept() failed")
             return
 
         sock, addr = pair
-        rs_log(f"incoming connection from {addr!r}")
-        self.plugin.client = ClientHandler(sock, self.plugin.request_handler)
+        rs_debug(f"Incoming connection from {addr!r}")
+        self.plugin.client = ClientHandler(sock, self.plugin.request_handler, addr)
 
     def handle_expt(self):
-        rs_log("listener error")
+        rs_error("Listener error")
         self.close()
 
     def handle_close(self):
-        rs_log("listener close")
+        rs_info("Listener close")
         self.close()
 
 
@@ -360,7 +369,7 @@ class ClientListenerTask(threading.Thread):
             sock.bind((host, port))
             return True
         except Exception as e:
-            rs_log(f"bind() failed, reason: {str(e)}")
+            rs_error(f"bind() failed, reason: {str(e)}")
             return False
         finally:
             sock.close()
@@ -370,11 +379,11 @@ class ClientListenerTask(threading.Thread):
         host = settings.get_string("retsync.ServerHost") or DEFAULT_HOST
         port = settings.get_integer("retsync.ServerPort") or DEFAULT_PORT
         if not self.is_port_available(host, port):
-            rs_log(f"aborting, port {port} already in use")
+            rs_warn(f"Aborting, port {port} already in use")
             self.plugin.cmd_syncoff()
             return
 
-        rs_debug(f"starting server on {host}:{port}")
+        rs_debug(f"Starting server on {host}:{port}")
 
         try:
             self.server = ClientListener(self.plugin)
@@ -416,10 +425,10 @@ class ProgramManager(object):
 
     def add(self, fpath: pathlib.Path):
         if fpath.name in self.opened:
-            rs_log(
+            rs_warn(
                 f'name collision ({fpath.name}):\n  - new:      "{fpath}"\n  - existing: "{self.opened[fpath.name].path}"'
             )
-            rs_log("warning, tab switching may not work as expected")
+            rs_warn("warning, tab switching may not work as expected")
             self.opened[fpath].lock()
         else:
             self.opened[fpath] = Program(fpath)
@@ -523,8 +532,6 @@ class SyncPlugin:
             if bv.project and bv.project.is_open
             else bv.file.original_filename
         )
-
-        rs_log(f"{fname=}")
 
         if not fname:
             return
@@ -838,9 +845,8 @@ class SyncPlugin:
         self.generic_bp("hbp1", True)
 
     def cmd_sync(self, ctx=None):
-        rs_debug("received command `cmd_sync`")
         if not self.pgm_mgr.opened:
-            rs_warn("please open a tab first")
+            rs_error("please open a tab first")
             return
 
         if self.client_listener:
@@ -851,9 +857,8 @@ class SyncPlugin:
         self.client_listener.start()
 
     def cmd_syncoff(self, _=None):
-        rs_debug("received command `cmd_syncoff`")
         if not self.client_listener:
-            rs_warn("not listening")
+            rs_error("not listening")
             return
 
         self.client_listener.cancel()

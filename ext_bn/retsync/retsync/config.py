@@ -35,9 +35,6 @@ DEFAULT_PORT = 9100
 
 DEFAULT_TRACE_COLOR = "green"
 
-# encoding settings (for data going in/out the plugin)
-RS_ENCODING = "utf-8"
-
 # debugging settings
 # enable/disable logging JSON received in the IDA output window
 DEBUG_JSON = False
@@ -105,11 +102,3 @@ DBG_DIALECTS = {
         "oneshot_post": ",ss",
     },
 }
-
-
-def rs_encode(buffer_str: str):
-    return buffer_str.encode(RS_ENCODING)
-
-
-def rs_decode(buffer_bytes: bytes):
-    return buffer_bytes.decode(RS_ENCODING)
