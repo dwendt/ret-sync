@@ -28,6 +28,7 @@ import enum
 import pathlib
 
 import binaryninja
+import binaryninjaui
 from binaryninjaui import (
     SidebarContextSensitivity,
     SidebarWidget,
@@ -67,8 +68,8 @@ class SyncWidget(QWidget):
         QWidget.__init__(self, parent)
 
         rs_debug("building SyncWidget()")
-        self.actionHandler = UIActionHandler()
-        self.actionHandler.setupActionHandler(self)
+        # self.actionHandler = UIActionHandler()
+        # self.actionHandler.setupActionHandler(self)
 
         status_layout = QHBoxLayout()
         status_layout.addWidget(QLabel("Status: "))
@@ -145,82 +146,64 @@ def open_file_as_icon(path: pathlib.Path) -> QImage:
 
 
 class SyncControlWidget(QWidget):
-    def __init__(self, parent: QWidget, plugin: SyncPlugin):
+    def __init__(self, parent: QWidget):
         QWidget.__init__(self, parent)
-        self.parent = parent
-        self.rs: SyncPlugin = plugin
 
-        self.toolbar = QToolBar(self, parent)
-        self.toolbar.setStyleSheet("QToolBar{spacing:0px;}")
+        assert isinstance(parent, SyncSideBarWidget)
+        self.rs: SyncPlugin = self.parent().rs
+
+        self._toolbar = QToolBar(self)
+        self._toolbar.setStyleSheet("QToolBar{spacing:0px;}")
         maxheight = 24
 
         # ----
-        self.toolbar.btnStart = QToolButton(self.toolbar)
-        self.toolbar.btnStart.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        self.toolbar.btnStart.setMaximumHeight(maxheight)
+        self._toolbar.btnStart = QToolButton(self._toolbar)
+        self._toolbar.btnStart.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._toolbar.btnStart.setMaximumHeight(maxheight)
 
-        self.toolbar.btnStart.actionStart = QAction("Start Sync", self.toolbar)
-        self.toolbar.btnStart.actionStart.triggered.connect(self.rs.cmd_sync)
-        self.toolbar.btnStart.actionStart.setIcon(
+        self._toolbar.btnStart.actionStart = QAction("Start Sync", self._toolbar)
+        self._toolbar.btnStart.actionStart.triggered.connect(self.rs.cmd_sync)
+        self._toolbar.btnStart.actionStart.setIcon(
             open_file_as_icon(ASSETS_FOLDER / "icon.svg")
         )
 
-        self.toolbar.btnStart.setDefaultAction(self.toolbar.btnStart.actionStart)
-        self.toolbar.addWidget(self.toolbar.btnStart)
+        self._toolbar.btnStart.setDefaultAction(self._toolbar.btnStart.actionStart)
+        self._toolbar.addWidget(self._toolbar.btnStart)
         # ----
 
         # ----
-        self.toolbar.btnStopInto = QToolButton(self.toolbar)
-        self.toolbar.btnStopInto.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        self.toolbar.btnStopInto.setMaximumHeight(maxheight)
+        self._toolbar.btnStopInto = QToolButton(self._toolbar)
+        self._toolbar.btnStopInto.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._toolbar.btnStopInto.setMaximumHeight(maxheight)
 
-        self.toolbar.btnStopInto.actionStep = QAction("Stop Sync", self.toolbar)
-        self.toolbar.btnStopInto.actionStep.triggered.connect(self.rs.cmd_syncoff)
-        self.toolbar.btnStopInto.actionStep.setIcon(
+        self._toolbar.btnStopInto.actionStep = QAction("Stop Sync", self._toolbar)
+        self._toolbar.btnStopInto.actionStep.triggered.connect(self.rs.cmd_syncoff)
+        self._toolbar.btnStopInto.actionStep.setIcon(
             open_file_as_icon(ASSETS_FOLDER / "icon.svg")
         )
 
-        self.toolbar.btnStopInto.setDefaultAction(self.toolbar.btnStopInto.actionStep)
-        self.toolbar.addWidget(self.toolbar.btnStopInto)
+        self._toolbar.btnStopInto.setDefaultAction(self._toolbar.btnStopInto.actionStep)
+        self._toolbar.addWidget(self._toolbar.btnStopInto)
         # ----
 
         # TODO handle the other commands from `SyncPlugin`
 
-        self.actionHandler = UIActionHandler()
-        self.actionHandler.setupActionHandler(self)
-
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.toolbar)
-        self.setLayout(self.layout)
-
-    def stateInit(self, arch, state):
-        pass
-
-    def stateReset(self):
-        pass
-
-    def stateUpdate(self, state):
-        pass
-
-    def notifytab(self, newName):
-        pass
-
-    def notifyOffsetChanged(self, offset):
-        pass
-
-    def shouldBeVisible(self, view_frame):
-        return view_frame is not None
+        self._layout = QVBoxLayout()
+        self._layout.addWidget(self._toolbar)
+        self.setLayout(self._layout)
 
 
 class SyncSideBarWidget(SidebarWidget):
-    initSignal = QtCore.Signal(object, object)
+    """See https://github.com/Vector35/binaryninja-api/blob/3659134a2c19191991c582f96fa762599f4def67/python/examples/hellosidebar.py#L36"""
 
     def __init__(self, name, _frame, _data):
         SidebarWidget.__init__(self, name)
-        self.initSignal.connect(self.stateInit)
+        self.actionHandler = UIActionHandler()
+        self.actionHandler.setupActionHandler(self)
         self.rs = SyncPlugin()
-        self.control_widget = SyncControlWidget(self, self.rs)
+        self.control_widget = SyncControlWidget(self)
         self.info_widget = SyncWidget(self)
+        self.info_widget.reset_status()
         self.rs.widget = self.info_widget
 
         self.layout = QVBoxLayout()
@@ -230,21 +213,17 @@ class SyncSideBarWidget(SidebarWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
-    def stateInit(self):
-        self.info_widget.reset_status()
-        rs_debug(
-            f"[stateInit] {self.info_widget.client_dbg=} , {self.info_widget.client_pgm=}"
-        )
-
-    def notifyViewChanged(self, view_frame):
-        new_name: str = view_frame.getTabName() if view_frame else ""
-        new_bv = view_frame.getCurrentBinaryView() if view_frame else None
-
-        rs_debug(f"[notifyViewChanged] {new_name=} , {new_bv=}")
+    def notifyViewChanged(self, view_frame: binaryninjaui.ViewFrame):
+        if not view_frame:
+            return
+        new_name: str = view_frame.getTabName()
+        new_bv: binaryninja.BinaryView = view_frame.getCurrentBinaryView()
         self.rs.update_view(new_bv, new_name)
 
 
 class SyncSidebarWidgetType(SidebarWidgetType):
+    """See https://github.com/Vector35/binaryninja-api/blob/3659134a2c19191991c582f96fa762599f4def67/python/examples/hellosidebar.py#L83"""
+
     name = "RetSync Manager"
 
     def __init__(self):

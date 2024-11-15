@@ -489,7 +489,7 @@ class SyncPlugin:
 
         # binary ninja objects
         self.widget: "SyncWidget" | None = None
-        self.view_frame = None
+        self.view_frame: binaryninjaui.ViewFrame | None = None
         self.view = None
         self.binary_view: BinaryView | None = None
         self.frame = None
@@ -520,7 +520,7 @@ class SyncPlugin:
         # get filename, handling the case of projects
         fname = (
             bv.project_file.name.replace(".bndb", "")
-            if bv.project.is_open
+            if bv.project and bv.project.is_open
             else bv.file.original_filename
         )
 

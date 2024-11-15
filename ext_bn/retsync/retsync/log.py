@@ -4,7 +4,7 @@ from .config import DEFAULT_LOG_LEVEL, LOG_PREFIX
 
 
 def rs_debug(s: str):
-    logger.log_debug(s)
+    logger.log_info(s)
 
 
 def rs_info(s: str):
@@ -19,24 +19,22 @@ def rs_error(s: str):
     logger.log_error(s)
 
 
-def rs_log(s: str, lvl: binaryninja.log.LogLevel = binaryninja.log.LogLevel.InfoLog):
-    if lvl < DEFAULT_LOG_LEVEL:
-        return
+def rs_alert(s: str):
+    logger.log_alert(s)
 
-    cb = None
 
+def rs_log(s: str, lvl: binaryninja.log.LogLevel = DEFAULT_LOG_LEVEL):
     match lvl:
         case binaryninja.log.LogLevel.DebugLog:
-            cb = logger.log_debug
+            rs_debug(s)
         case binaryninja.log.LogLevel.WarningLog:
-            cb = logger.log_warn
+            rs_warn(s)
         case binaryninja.log.LogLevel.ErrorLog:
-            cb = logger.log_error
+            rs_error(s)
+        case binaryninja.log.LogLevel.AlertLog:
+            rs_alert(s)
         case _:
-            cb = logger.log_info
-
-    if cb:
-        cb(s)
+            rs_info(s)
 
 
 logger = binaryninja.log.Logger(0, LOG_PREFIX)
