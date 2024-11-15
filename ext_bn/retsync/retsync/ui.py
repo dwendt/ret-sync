@@ -184,24 +184,28 @@ class SyncControlWidget(QWidget):
         self._toolbar.btnStepInto = QToolButton(self._toolbar)
         self._toolbar.btnStepInto.setToolButtonStyle(Qt.ToolButtonIconOnly)
         self._toolbar.btnStepInto.setMaximumHeight(maxheight)
-        self._toolbar.btnStepInto.actionStep = QAction("Step Info", self._toolbar)
-        self._toolbar.btnStepInto.actionStep.triggered.connect(self.rs.cmd_si)
-        self._toolbar.btnStepInto.actionStep.setIcon(
+        self._toolbar.btnStepInto.actionStepInfo = QAction("Step Into", self._toolbar)
+        self._toolbar.btnStepInto.actionStepInfo.triggered.connect(self.rs.cmd_si)
+        self._toolbar.btnStepInto.actionStepInfo.setIcon(
             open_file_as_icon(ASSETS_FOLDER / "icon.svg")
         )
-        self._toolbar.btnStepInto.setDefaultAction(self._toolbar.btnStepInto.actionStep)
+        self._toolbar.btnStepInto.setDefaultAction(
+            self._toolbar.btnStepInto.actionStepInfo
+        )
         self._toolbar.addWidget(self._toolbar.btnStepInto)
 
         # Step Over button
         self._toolbar.btnStepOver = QToolButton(self._toolbar)
         self._toolbar.btnStepOver.setToolButtonStyle(Qt.ToolButtonIconOnly)
         self._toolbar.btnStepOver.setMaximumHeight(maxheight)
-        self._toolbar.btnStepOver.actionStep = QAction("Step Over", self._toolbar)
-        self._toolbar.btnStepOver.actionStep.triggered.connect(self.rs.cmd_so)
-        self._toolbar.btnStepOver.actionStep.setIcon(
+        self._toolbar.btnStepOver.actionStepOver = QAction("Step Over", self._toolbar)
+        self._toolbar.btnStepOver.actionStepOver.triggered.connect(self.rs.cmd_so)
+        self._toolbar.btnStepOver.actionStepOver.setIcon(
             open_file_as_icon(ASSETS_FOLDER / "icon.svg")
         )
-        self._toolbar.btnStepOver.setDefaultAction(self._toolbar.btnStepInto.actionStep)
+        self._toolbar.btnStepOver.setDefaultAction(
+            self._toolbar.btnStepOver.actionStepOver
+        )
         self._toolbar.addWidget(self._toolbar.btnStepOver)
 
         # Go button
