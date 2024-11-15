@@ -25,8 +25,6 @@ SOFTWARE.
 """
 
 import logging
-import os
-import tempfile
 
 import binaryninja
 
@@ -112,25 +110,25 @@ DBG_DIALECTS = {
 }
 
 
-def init_logging(src):
-    logging.basicConfig(LOG_LEVEL)
-    name = os.path.basename(src)
-    logger = logging.getLogger("retsync.plugin." + name)
+# def init_logging(src):
+#     logging.basicConfig(LOG_LEVEL)
+#     name = os.path.basename(src)
+#     logger = logging.getLogger("retsync.plugin." + name)
 
-    if LOG_TO_FILE_ENABLE:
-        rot_handler = logging.handlers.RotatingFileHandler(
-            os.path.join(tempfile.gettempdir(), f"retsync.{name}.err"),
-            mode="a",
-            maxBytes=8192,
-            backupCount=1,
-        )
+#     if LOG_TO_FILE_ENABLE:
+#         rot_handler = logging.handlers.RotatingFileHandler(
+#             os.path.join(tempfile.gettempdir(), f"retsync.{name}.err"),
+#             mode="a",
+#             maxBytes=8192,
+#             backupCount=1,
+#         )
 
-        formatter = logging.Formatter(LOG_FMT_STRING)
-        rot_handler.setFormatter(formatter)
-        rot_handler.setLevel(logging.DEBUG)
-        logger.addHandler(rot_handler)
+#         formatter = logging.Formatter(LOG_FMT_STRING)
+#         rot_handler.setFormatter(formatter)
+#         rot_handler.setLevel(logging.DEBUG)
+#         logger.addHandler(rot_handler)
 
-    return logger
+#     return logger
 
 
 def rs_debug(s):

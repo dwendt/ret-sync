@@ -45,7 +45,16 @@ if TYPE_CHECKING:
     from .retsync.ui import SyncWidget
 
 from .retsync import config as config
-from .retsync.config import HOST, PORT, rs_debug, rs_decode, rs_encode, rs_log, rs_warn
+from .retsync.config import (
+    CB_TRACE_COLOR,
+    HOST,
+    PORT,
+    rs_debug,
+    rs_decode,
+    rs_encode,
+    rs_log,
+    rs_warn,
+)
 
 
 class SyncHandler(object):
@@ -682,7 +691,10 @@ class SyncPlugin:
             rs_log("goto: no view available")
 
     def color_callback(self, hglt_addr: int):
-        match binaryninja.Settings().get_string("retsync.TraceColor").lower():
+        color_str = (
+            binaryninja.Settings().get_string("retsync.TraceColor") or CB_TRACE_COLOR
+        ).lower()
+        match color_str:
             case "none":
                 color = HighlightStandardColor.NoHighlightColor
             case "blue":
@@ -838,6 +850,16 @@ class SyncPlugin:
 
         self.client_listener = ClientListenerTask(self)
         self.client_listener.start()
+
+    def cmd_syncoff(self, _=None):
+        rs_debug("received command `cmd_syncoff`")
+        if not self.client_listener:
+            rs_warn("not listening")
+            return
+
+        self.client_listener.cancel()
+        self.client_listener = None
+        self.widget.reset_status()
 
     def cmd_syncoff(self, _=None):
         rs_debug("received command `cmd_syncoff`")
