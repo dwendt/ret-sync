@@ -25,14 +25,16 @@ SOFTWARE.
 """
 
 import logging
+import pathlib
+import tempfile
 
 import binaryninja
 
 # networking settings
-HOST = "localhost"
-PORT = 9100
+DEFAULT_HOST = "localhost"
+DEFAULT_PORT = 9100
 
-CB_TRACE_COLOR = "green"
+DEFAULT_TRACE_COLOR = "green"
 
 # encoding settings (for data going in/out the plugin)
 RS_ENCODING = "utf-8"
@@ -49,6 +51,8 @@ LOG_PREFIX = "sync"
 
 # enable/disable broker and dipatcher exception logging to file
 LOG_TO_FILE_ENABLE = False
+
+DEFAULT_LOG_FILE = pathlib.Path(tempfile.gettempdir()) / "retsync.log"
 
 # logging feature for broker and dispatcher (disabled by default)
 LOG_FMT_STRING = "%(asctime)-12s [%(levelname)s] %(message)s"

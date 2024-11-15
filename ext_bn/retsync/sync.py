@@ -46,9 +46,9 @@ if TYPE_CHECKING:
 
 from .retsync import config as config
 from .retsync.config import (
-    CB_TRACE_COLOR,
-    HOST,
-    PORT,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    DEFAULT_TRACE_COLOR,
     rs_debug,
     rs_decode,
     rs_encode,
@@ -323,8 +323,8 @@ class ClientListener(asyncore.dispatcher):
     def __init__(self, plugin: "SyncPlugin"):
         asyncore.dispatcher.__init__(self)
         settings = binaryninja.Settings()
-        host = settings.get_string("retsync.ServerHost") or HOST
-        port = settings.get_integer("retsync.ServerPort") or PORT
+        host = settings.get_string("retsync.ServerHost") or DEFAULT_HOST
+        port = settings.get_integer("retsync.ServerPort") or DEFAULT_PORT
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.bind((host, port))
         self.listen(1)
@@ -369,8 +369,8 @@ class ClientListenerTask(threading.Thread):
 
     def run(self):
         settings = binaryninja.Settings()
-        host = settings.get_string("retsync.ServerHost") or HOST
-        port = settings.get_integer("retsync.ServerPort") or PORT
+        host = settings.get_string("retsync.ServerHost") or DEFAULT_HOST
+        port = settings.get_integer("retsync.ServerPort") or DEFAULT_PORT
         if not self.is_port_available(host, port):
             rs_log(f"aborting, port {port} already in use")
             self.plugin.cmd_syncoff()
@@ -692,7 +692,8 @@ class SyncPlugin:
 
     def color_callback(self, hglt_addr: int):
         color_str = (
-            binaryninja.Settings().get_string("retsync.TraceColor") or CB_TRACE_COLOR
+            binaryninja.Settings().get_string("retsync.TraceColor")
+            or DEFAULT_TRACE_COLOR
         ).lower()
         match color_str:
             case "none":
