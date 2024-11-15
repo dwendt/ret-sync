@@ -27,6 +27,7 @@ SOFTWARE.
 import enum
 import pathlib
 
+import binaryninja
 from binaryninjaui import (
     SidebarContextSensitivity,
     SidebarWidget,
@@ -82,7 +83,7 @@ class SyncWidget(QWidget):
         client_dbg_layout.setAlignment(QtCore.Qt.AlignCenter)
 
         client_pgm_layout = QHBoxLayout()
-        client_pgm_layout.addWidget(QLabel("Client program: "))
+        client_pgm_layout.addWidget(QLabel("Currently debugged module: "))
         self.client_pgm = QLabel("n/a")
         client_pgm_layout.addWidget(self.client_pgm)
         client_pgm_layout.setAlignment(QtCore.Qt.AlignCenter)
@@ -111,7 +112,18 @@ class SyncWidget(QWidget):
         self.client_dbg.setText(dialect)
 
     def set_program(self, pgm: pathlib.Path):
-        self.client_pgm.setText(pgm.name)
+        text = pgm.name
+        aliases = dict(
+            [
+                x.split(":", 1)
+                for x in binaryninja.Settings().get_string_list("retsync.Aliases")
+            ]
+        )
+        for original_module_name, aliased_module_name in aliases.items():
+            if text == aliased_module_name:
+                text += f" (alias for {original_module_name})"
+                break
+        self.client_pgm.setText(text)
 
     def reset_client(self):
         self.set_status(SyncStatus.LISTENING)

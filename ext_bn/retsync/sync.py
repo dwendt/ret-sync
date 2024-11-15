@@ -45,16 +45,7 @@ if TYPE_CHECKING:
     from .retsync.ui import SyncWidget
 
 from .retsync import config as config
-from .retsync.config import (
-    load_configuration,
-    rs_debug,
-    rs_decode,
-    rs_encode,
-    rs_log,
-    rs_warn,
-)
-
-IMAGE_ALIASES: dict[str, str] = {"ntkrnlmp.exe": "ntoskrnl.exe"}
+from .retsync.config import HOST, PORT, rs_debug, rs_decode, rs_encode, rs_log, rs_warn
 
 
 class SyncHandler(object):
@@ -154,10 +145,16 @@ class NoticeHandler(object):
 
     def req_module(self, notice):
         fname = notice["path"]
+        aliases = dict(
+            [
+                x.split(":", 1)
+                for x in binaryninja.Settings().get_string_list("retsync.Aliases")
+            ]
+        )
 
-        if fname in IMAGE_ALIASES:
-            rs_debug(f"Resolved alias images {fname } -> { IMAGE_ALIASES[fname]}")
-            fname = IMAGE_ALIASES[fname]
+        if fname in aliases:
+            rs_debug(f"Resolved alias images {fname } -> { aliases[fname]}")
+            fname = aliases[fname]
 
         pgm = RemotePath(fname)
         if not self.plugin.sync_mode_auto:
@@ -316,8 +313,11 @@ class ClientHandler(asyncore.dispatcher_with_send):
 class ClientListener(asyncore.dispatcher):
     def __init__(self, plugin: "SyncPlugin"):
         asyncore.dispatcher.__init__(self)
+        settings = binaryninja.Settings()
+        host = settings.get_string("retsync.ServerHost") or HOST
+        port = settings.get_integer("retsync.ServerPort") or PORT
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.bind((plugin.user_conf.host, plugin.user_conf.port))
+        self.bind((host, port))
         self.listen(1)
         self.plugin = plugin
 
@@ -359,16 +359,15 @@ class ClientListenerTask(threading.Thread):
             sock.close()
 
     def run(self):
-        if not self.is_port_available(
-            self.plugin.user_conf.host, self.plugin.user_conf.port
-        ):
-            rs_log(f"aborting, port {self.plugin.user_conf.port} already in use")
+        settings = binaryninja.Settings()
+        host = settings.get_string("retsync.ServerHost") or HOST
+        port = settings.get_integer("retsync.ServerPort") or PORT
+        if not self.is_port_available(host, port):
+            rs_log(f"aborting, port {port} already in use")
             self.plugin.cmd_syncoff()
             return
 
-        rs_debug(
-            f"starting server on {self.plugin.user_conf.host}:{self.plugin.user_conf.port}"
-        )
+        rs_debug(f"starting server on {host}:{port}")
 
         try:
             self.server = ClientListener(self.plugin)
@@ -478,7 +477,6 @@ class SyncPlugin:
         self.request_handler = RequestHandler(self)
         self.client_listener: ClientListener | None = None
         self.client: ClientHandler | None = None
-        self.user_conf = load_configuration()
         self.next_tab_lock = threading.Event()
         self.pgm_mgr = ProgramManager()
 
@@ -525,9 +523,15 @@ class SyncPlugin:
             return
 
         # handle image aliases
-        if fname in IMAGE_ALIASES:
-            rs_log(f"fix alias {fname} -> {IMAGE_ALIASES[fname]} ")
-            fname = IMAGE_ALIASES[fname]
+        aliases = dict(
+            [
+                x.split(":", 1)
+                for x in binaryninja.Settings().get_string_list("retsync.Aliases")
+            ]
+        )
+        if fname in aliases:
+            rs_log(f"fix alias {fname} -> {aliases[fname]} ")
+            fname = aliases[fname]
 
         # if the view is not in the program manager, add it
         pgm = pathlib.Path(fname)
