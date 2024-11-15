@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
 from .retsync import config as config
 from .retsync.config import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TRACE_COLOR
-from .retsync.log import rs_debug, rs_error, rs_info, rs_log, rs_warn
+from .retsync.log import rs_debug, rs_error, rs_info, rs_warn
 
 
 def rs_encode(buffer_str: str, encoding="utf-8"):
@@ -61,7 +61,7 @@ class SyncHandler(object):
     # location request, update disassembly view
     def req_loc(self, sync):
         offset, base = sync["offset"], sync.get("base")
-        rs_log(f"in SyncHandler::req_loc({base=:#}, {offset=:#x})")
+        rs_debug(f"in SyncHandler::req_loc({base=:#}, {offset=:#x})")
         self.plugin.goto(base, offset)
 
     def req_rbase(self, sync):
@@ -89,23 +89,23 @@ class SyncHandler(object):
         if cursor_addr:
             self.client.send(rs_encode(hex(cursor_addr)))
         else:
-            rs_log("failed to get cursor location")
+            rs_debug("failed to get cursor location")
 
     def req_not_implemented(self, sync):
-        rs_log(f"Request type {sync['type']} not implemented")
+        rs_debug(f"Request type {sync['type']} not implemented")
 
     def parse(self, sync):
         # self.client = client
         stype = sync["type"]
         if stype not in self.req_handlers:
-            rs_log("Unknown sync request: {stype}")
+            rs_debug("Unknown sync request: {stype}")
             return
 
         if not self.plugin.sync_enabled:
-            rs_log(f"[-] {stype} request dropped because no program is enabled")
+            rs_debug(f"[-] {stype} request dropped because no program is enabled")
             return
 
-        rs_log(f"[+] calling {stype} request handler")
+        rs_debug(f"[+] calling {stype} request handler")
         req_handler = self.req_handlers[stype]
         req_handler(sync)
 
@@ -137,7 +137,7 @@ class NoticeHandler(object):
 
     def req_new_dbg(self, notice):
         dialect = notice["dialect"]
-        rs_log(f"new_dbg: {notice['msg']}")
+        rs_debug(f"new_dbg: {notice['msg']}")
         self.plugin.bootstrap(dialect)
 
         if sys.platform.startswith("linux") or sys.platform == "darwin":
@@ -150,7 +150,7 @@ class NoticeHandler(object):
 
     def req_dbg_err(self, notice):
         self.plugin.sync_enabled = False
-        rs_log("dbg err: disabling current program")
+        rs_debug("dbg err: disabling current program")
 
     def req_module(self, notice):
         fname = notice["path"]
@@ -192,30 +192,30 @@ class NoticeHandler(object):
 
     def req_sync_mode(self, notice):
         mode = notice["auto"]
-        rs_log(f"sync mode auto: {mode}")
+        rs_debug(f"sync mode auto: {mode}")
         if mode == "on":
             self.plugin.sync_mode_auto = True
         elif mode == "off":
             self.plugin.sync_mode_auto = False
         else:
-            rs_log(f"sync mode unknown: {mode}")
+            rs_debug(f"sync mode unknown: {mode}")
 
     def req_bc(self, notice):
         action = notice["msg"]
 
         if action == "on":
             self.plugin.cb_trace_enabled = True
-            rs_log("color trace enabled")
+            rs_debug("color trace enabled")
         elif action == "off":
             self.plugin.cb_trace_enabled = False
-            rs_log("color trace disabled")
+            rs_debug("color trace disabled")
         elif action == "oneshot":
             self.plugin.cb_trace_enabled = True
 
     def parse(self, notice):
         ntype = notice["type"]
         if ntype not in self.req_handlers:
-            rs_log(f"unknown notice request: {str(ntype)}")
+            rs_debug(f"unknown notice request: {str(ntype)}")
             return
 
         req_handler = self.req_handlers[ntype]
@@ -241,7 +241,7 @@ class RequestType(object):
 
     @staticmethod
     def extract(request: str) -> None | str:
-        rs_log(f"received request '{request}'")
+        rs_debug(f"received request '{request}'")
         if request.startswith(RequestType.NOTICE):
             return RequestType.NOTICE
         elif request.startswith(RequestType.SYNC):
@@ -317,11 +317,11 @@ class ClientHandler(asyncore.dispatcher_with_send):
             self.close()
 
     def handle_expt(self):
-        rs_log("client error")
+        rs_debug("client error")
         self.close()
 
     def handle_close(self):
-        rs_log("client quit")
+        rs_debug("client quit")
         self.close()
 
 
@@ -388,16 +388,16 @@ class ClientListenerTask(threading.Thread):
         try:
             self.server = ClientListener(self.plugin)
             self.plugin.reset_client()
-            rs_log("server started")
+            rs_debug("server started")
             asyncore.loop()
         except Exception as e:
-            rs_log(f"server initialization failed, reason: {str(e)}")
+            rs_debug(f"server initialization failed, reason: {str(e)}")
             self.cancel()
             self.plugin.cmd_syncoff()
 
     def cancel(self):
         if self.server:
-            rs_log("server shutdown")
+            rs_debug("server shutdown")
             asyncore.close_all()
             self.server.close()
             self.server = None
@@ -544,21 +544,21 @@ class SyncPlugin:
             ]
         )
         if fname in aliases:
-            rs_log(f"fix alias {fname} -> {aliases[fname]} ")
+            rs_debug(f"fix alias {fname} -> {aliases[fname]} ")
             fname = aliases[fname]
 
         # if the view is not in the program manager, add it
         pgm = pathlib.Path(fname)
         if not self.pgm_mgr.exists(pgm):
             self.pgm_mgr.add(pgm)
-            rs_log(f"Added {pgm}, currently opened {self.pgm_mgr.opened}")
+            rs_debug(f"Added {pgm}, currently opened {self.pgm_mgr.opened}")
 
         self.binary_view = bv
         self.current_tab = pgm.name
         self.base = self.binary_view.start
         self.base_remote = self.pgm_mgr.get_base_for_program(pgm)
         if self.base_remote:
-            rs_log(f"Setting remote base to {self.base_remote:#x}")
+            rs_debug(f"Setting remote base to {self.base_remote:#x}")
 
         # mark it as active
         self.set_program(pgm)
@@ -569,7 +569,7 @@ class SyncPlugin:
 
         if dialect in config.DBG_DIALECTS:
             self.dbg_dialect = config.DBG_DIALECTS[dialect]
-            rs_log(f"set debugger dialect to {dialect}, enabling hotkeys")
+            rs_debug(f"set debugger dialect to {dialect}, enabling hotkeys")
 
     def reset_client(self):
         self.sync_enabled = False
@@ -579,17 +579,17 @@ class SyncPlugin:
 
     def broadcast(self, msg):
         self.client.send(rs_encode(msg))
-        rs_log(msg)
+        rs_debug(msg)
 
     def set_program(self, pgm: pathlib.Path):
-        rs_log(f"Setting active program to {pgm}")
+        rs_debug(f"Setting active program to {pgm}")
         self.widget.set_program(pgm)
         if not self.pgm_mgr.exists(pgm):
             rs_warn(f"{pgm} is not opened")
             return
         self.sync_enabled = True
         self.current_pgm = pgm
-        rs_log(f"Current program set to {pgm}")
+        rs_debug(f"Current program set to {pgm}")
         # self.pgm_target_with_lock(pgm)
 
     def set_program_id(self, index: int):
@@ -629,7 +629,7 @@ class SyncPlugin:
     #             self.target_tab = None
     #             self.next_tab_lock.set()
     #     except Exception as e:
-    #         rs_log(f"error while switching tabs, reason: {str(e)}")
+    #         rs_debug(f"error while switching tabs, reason: {str(e)}")
 
     # def trigger_action(self, action: str):
     #     handler = UIActionHandler().actionHandlerFromWidget(self.plugin)
@@ -644,7 +644,7 @@ class SyncPlugin:
         if base is not None:
             # check for non-compliant debugger client
             if base > offset:
-                rs_log(f"unsafe addr: {base=:#x} > {offset=:#x}")
+                rs_debug(f"unsafe addr: {base=:#x} > {offset=:#x}")
                 return None
 
             # update base address of remote module
@@ -656,7 +656,7 @@ class SyncPlugin:
             assert isinstance(dest, int)
 
         if not self.is_safe(dest):
-            rs_log(f"unsafe addr: {dest:#x} not in valid segment")
+            rs_debug(f"unsafe addr: {dest:#x} not in valid segment")
             return None
 
         return dest
@@ -680,7 +680,7 @@ class SyncPlugin:
         self.base_remote = rbase
 
     def goto(self, base: int, offset: int):
-        rs_log(f"SyncPlugin::goto({base=:#x}, {offset=:#x})")
+        rs_debug(f"SyncPlugin::goto({base=:#x}, {offset=:#x})")
         if not self.sync_enabled:
             return
 
@@ -688,12 +688,12 @@ class SyncPlugin:
             goto_addr = self.rebase(base, offset)
             view = self.binary_view.view
             if not self.binary_view.navigate(view, goto_addr):
-                rs_log(f"goto {hex(goto_addr)} error")
+                rs_debug(f"goto {hex(goto_addr)} error")
 
             if self.cb_trace_enabled:
                 self.color_callback(goto_addr)
         else:
-            rs_log("goto: no view available")
+            rs_debug("goto: no view available")
 
     def color_callback(self, hglt_addr: int):
         color_str = (
@@ -759,7 +759,7 @@ class SyncPlugin:
         if self.sync_enabled and self.dbg_dialect:
             return True
 
-        rs_log("commands not available")
+        rs_debug("commands not available")
         return False
 
     # send a command to the debugger
@@ -768,7 +768,7 @@ class SyncPlugin:
             return
 
         if cmd not in self.dbg_dialect:
-            rs_log(f"{cmd}: unknown command in dialect")
+            rs_debug(f"{cmd}: unknown command in dialect")
             return
 
         cmdline = self.dbg_dialect[cmd]
@@ -825,7 +825,7 @@ class SyncPlugin:
     def cmd_translate(self, ctx=None):
         ui_addr = self.view_frame.getCurrentOffset()
         if not ui_addr:
-            rs_log("failed to get cursor location")
+            rs_debug("failed to get cursor location")
             return
 
         rs_debug(f"translate address {hex(ui_addr)}")
