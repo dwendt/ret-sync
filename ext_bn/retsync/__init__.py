@@ -46,7 +46,6 @@ from .retsync.ui import SyncSidebarWidgetType
 
 # TODO
 # - fix tab switch
-# - replace icons
 
 
 def register_retsync_settings() -> None:

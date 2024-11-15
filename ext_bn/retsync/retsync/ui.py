@@ -50,11 +50,10 @@ from PySide6.QtWidgets import (
 )
 
 from ..sync import SyncPlugin
-from .log import rs_debug
 
 CURRENT_FILE = pathlib.Path(__file__)
 CURRENT_FOLDER = CURRENT_FILE.parent
-ASSETS_FOLDER = CURRENT_FOLDER / "assets"
+ASSETS_FOLDER = CURRENT_FOLDER / "assets/dark"
 
 
 class SyncStatus(enum.IntEnum):
@@ -66,10 +65,6 @@ class SyncStatus(enum.IntEnum):
 class SyncWidget(QWidget):
     def __init__(self, parent: QWidget):
         QWidget.__init__(self, parent)
-
-        rs_debug("building SyncWidget()")
-        # self.actionHandler = UIActionHandler()
-        # self.actionHandler.setupActionHandler(self)
 
         status_layout = QHBoxLayout()
         status_layout.addWidget(QLabel("Status: "))
@@ -163,7 +158,7 @@ class SyncControlWidget(QWidget):
         self._toolbar.btnStart.actionStart = QAction("Start Sync", self._toolbar)
         self._toolbar.btnStart.actionStart.triggered.connect(self.rs.cmd_sync)
         self._toolbar.btnStart.actionStart.setIcon(
-            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+            open_file_as_icon(ASSETS_FOLDER / "start-sync.svg")
         )
         self._toolbar.btnStart.setDefaultAction(self._toolbar.btnStart.actionStart)
         self._toolbar.addWidget(self._toolbar.btnStart)
@@ -175,7 +170,7 @@ class SyncControlWidget(QWidget):
         self._toolbar.btnStopInto.actionStop = QAction("Stop Sync", self._toolbar)
         self._toolbar.btnStopInto.actionStop.triggered.connect(self.rs.cmd_syncoff)
         self._toolbar.btnStopInto.actionStop.setIcon(
-            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+            open_file_as_icon(ASSETS_FOLDER / "stop-sync.svg")
         )
         self._toolbar.btnStopInto.setDefaultAction(self._toolbar.btnStopInto.actionStop)
         self._toolbar.addWidget(self._toolbar.btnStopInto)
@@ -187,7 +182,7 @@ class SyncControlWidget(QWidget):
         self._toolbar.btnStepInto.actionStepInfo = QAction("Step Into", self._toolbar)
         self._toolbar.btnStepInto.actionStepInfo.triggered.connect(self.rs.cmd_si)
         self._toolbar.btnStepInto.actionStepInfo.setIcon(
-            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+            open_file_as_icon(ASSETS_FOLDER / "step-into.svg")
         )
         self._toolbar.btnStepInto.setDefaultAction(
             self._toolbar.btnStepInto.actionStepInfo
@@ -201,7 +196,7 @@ class SyncControlWidget(QWidget):
         self._toolbar.btnStepOver.actionStepOver = QAction("Step Over", self._toolbar)
         self._toolbar.btnStepOver.actionStepOver.triggered.connect(self.rs.cmd_so)
         self._toolbar.btnStepOver.actionStepOver.setIcon(
-            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+            open_file_as_icon(ASSETS_FOLDER / "step-over.svg")
         )
         self._toolbar.btnStepOver.setDefaultAction(
             self._toolbar.btnStepOver.actionStepOver
@@ -215,7 +210,7 @@ class SyncControlWidget(QWidget):
         self._toolbar.btnGo.actionGo = QAction("Go", self._toolbar)
         self._toolbar.btnGo.actionGo.triggered.connect(self.rs.cmd_go)
         self._toolbar.btnGo.actionGo.setIcon(
-            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+            open_file_as_icon(ASSETS_FOLDER / "go.svg")
         )
         self._toolbar.btnGo.setDefaultAction(self._toolbar.btnGo.actionGo)
         self._toolbar.addWidget(self._toolbar.btnGo)
