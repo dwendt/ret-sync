@@ -4,7 +4,7 @@ from .config import DEFAULT_LOG_LEVEL, LOG_PREFIX
 
 
 def rs_debug(s: str):
-    logger.log_info(s)
+    logger.log_debug(s)
 
 
 def rs_info(s: str):

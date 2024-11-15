@@ -156,37 +156,65 @@ class SyncControlWidget(QWidget):
         self._toolbar.setStyleSheet("QToolBar{spacing:0px;}")
         maxheight = 24
 
-        # ----
+        # Start Sync button
         self._toolbar.btnStart = QToolButton(self._toolbar)
         self._toolbar.btnStart.setToolButtonStyle(Qt.ToolButtonIconOnly)
         self._toolbar.btnStart.setMaximumHeight(maxheight)
-
         self._toolbar.btnStart.actionStart = QAction("Start Sync", self._toolbar)
         self._toolbar.btnStart.actionStart.triggered.connect(self.rs.cmd_sync)
         self._toolbar.btnStart.actionStart.setIcon(
             open_file_as_icon(ASSETS_FOLDER / "icon.svg")
         )
-
         self._toolbar.btnStart.setDefaultAction(self._toolbar.btnStart.actionStart)
         self._toolbar.addWidget(self._toolbar.btnStart)
-        # ----
 
-        # ----
+        # Stop Sync button
         self._toolbar.btnStopInto = QToolButton(self._toolbar)
         self._toolbar.btnStopInto.setToolButtonStyle(Qt.ToolButtonIconOnly)
         self._toolbar.btnStopInto.setMaximumHeight(maxheight)
-
-        self._toolbar.btnStopInto.actionStep = QAction("Stop Sync", self._toolbar)
-        self._toolbar.btnStopInto.actionStep.triggered.connect(self.rs.cmd_syncoff)
-        self._toolbar.btnStopInto.actionStep.setIcon(
+        self._toolbar.btnStopInto.actionStop = QAction("Stop Sync", self._toolbar)
+        self._toolbar.btnStopInto.actionStop.triggered.connect(self.rs.cmd_syncoff)
+        self._toolbar.btnStopInto.actionStop.setIcon(
             open_file_as_icon(ASSETS_FOLDER / "icon.svg")
         )
-
-        self._toolbar.btnStopInto.setDefaultAction(self._toolbar.btnStopInto.actionStep)
+        self._toolbar.btnStopInto.setDefaultAction(self._toolbar.btnStopInto.actionStop)
         self._toolbar.addWidget(self._toolbar.btnStopInto)
-        # ----
 
-        # TODO handle the other commands from `SyncPlugin`
+        # Step Into button
+        self._toolbar.btnStepInto = QToolButton(self._toolbar)
+        self._toolbar.btnStepInto.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._toolbar.btnStepInto.setMaximumHeight(maxheight)
+        self._toolbar.btnStepInto.actionStep = QAction("Step Info", self._toolbar)
+        self._toolbar.btnStepInto.actionStep.triggered.connect(self.rs.cmd_si)
+        self._toolbar.btnStepInto.actionStep.setIcon(
+            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+        )
+        self._toolbar.btnStepInto.setDefaultAction(self._toolbar.btnStepInto.actionStep)
+        self._toolbar.addWidget(self._toolbar.btnStepInto)
+
+        # Step Over button
+        self._toolbar.btnStepOver = QToolButton(self._toolbar)
+        self._toolbar.btnStepOver.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._toolbar.btnStepOver.setMaximumHeight(maxheight)
+        self._toolbar.btnStepOver.actionStep = QAction("Step Over", self._toolbar)
+        self._toolbar.btnStepOver.actionStep.triggered.connect(self.rs.cmd_so)
+        self._toolbar.btnStepOver.actionStep.setIcon(
+            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+        )
+        self._toolbar.btnStepOver.setDefaultAction(self._toolbar.btnStepInto.actionStep)
+        self._toolbar.addWidget(self._toolbar.btnStepOver)
+
+        # Go button
+        self._toolbar.btnGo = QToolButton(self._toolbar)
+        self._toolbar.btnGo.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._toolbar.btnGo.setMaximumHeight(maxheight)
+        self._toolbar.btnGo.actionGo = QAction("Go", self._toolbar)
+        self._toolbar.btnGo.actionGo.triggered.connect(self.rs.cmd_go)
+        self._toolbar.btnGo.actionGo.setIcon(
+            open_file_as_icon(ASSETS_FOLDER / "icon.svg")
+        )
+        self._toolbar.btnGo.setDefaultAction(self._toolbar.btnGo.actionGo)
+        self._toolbar.addWidget(self._toolbar.btnGo)
 
         self._layout = QVBoxLayout()
         self._layout.addWidget(self._toolbar)

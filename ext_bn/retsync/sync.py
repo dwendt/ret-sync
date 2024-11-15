@@ -801,11 +801,11 @@ class SyncPlugin:
     def generic_bp(self, bp_cmd: str, oneshot=False):
         ui_addr = self.view_frame.getCurrentOffset()
         if not ui_addr:
-            rs_log("failed to get cursor location")
+            rs_error("Failed to get cursor location")
             return
 
         if not self.base_remote:
-            rs_log(
+            rs_debug(
                 f"{bp_cmd} failed, remote base of {self.current_pgm} program unknown"
             )
             return

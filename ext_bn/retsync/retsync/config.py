@@ -40,7 +40,7 @@ DEFAULT_TRACE_COLOR = "green"
 DEBUG_JSON = False
 
 # global log level (console output)
-DEFAULT_LOG_LEVEL = binaryninja.log.LogLevel.DebugLog
+DEFAULT_LOG_LEVEL = binaryninja.log.LogLevel.InfoLog
 
 # log prefix to identify plugin
 LOG_PREFIX = "retsync"
