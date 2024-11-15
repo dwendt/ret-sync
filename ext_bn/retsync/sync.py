@@ -860,13 +860,3 @@ class SyncPlugin:
         self.client_listener.cancel()
         self.client_listener = None
         self.widget.reset_status()
-
-    def cmd_syncoff(self, _=None):
-        rs_debug("received command `cmd_syncoff`")
-        if not self.client_listener:
-            rs_warn("not listening")
-            return
-
-        self.client_listener.cancel()
-        self.client_listener = None
-        self.widget.reset_status()
