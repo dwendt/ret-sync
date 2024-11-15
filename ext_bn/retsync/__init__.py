@@ -29,7 +29,7 @@ import binaryninja
 if not binaryninja.core_ui_enabled:
     raise RuntimeError("UI only")
 
-if not binaryninja.core_version_info().major < 4:
+if binaryninja.core_version_info().major < 4:
     raise RuntimeError("Binary Ninja 4.x+ required")
 
 from binaryninjaui import Sidebar
@@ -37,17 +37,17 @@ from binaryninjaui import Sidebar
 from .retsync.config import (
     DEFAULT_HOST,
     DEFAULT_LOG_FILE,
+    DEFAULT_LOG_LEVEL,
     DEFAULT_PORT,
     DEFAULT_TRACE_COLOR,
-    LOG_LEVEL,
-    rs_debug,
 )
+from .retsync.log import rs_debug
 from .retsync.ui import SyncSidebarWidgetType
 
 # TODO
 # - fix tab switch
-# - better tests
-# - better icons
+# - add more commands
+# - replace icons
 
 
 def register_retsync_settings() -> None:
@@ -55,8 +55,8 @@ def register_retsync_settings() -> None:
         "ServerHost": f"""{{ "title" : "TCP Listen Host", "description" : "Interface to listen on", "type" : "string", "default" : "{DEFAULT_HOST}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "ServerPort": f"""{{ "title" : "TCP Listen Port", "description" : "TCP port to listen on", "type" : "number", "minValue": 1, "maxValue": 65535,  "default" : {DEFAULT_PORT}, "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "TraceColor": f"""{{ "title" : "Current Instruction Color", "description" : "When synchronized, use the following color for highlight the current instruction. The valid values are: none, blue, cyan, red, magenta, yellow, orange, white, black", "type" : "string", "default" : "{DEFAULT_TRACE_COLOR}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
+        "LogFile": f"""{{ "title" : "Write logs to file", "description" : "Write RetSync logs to the given file", "type" : "string", "default": "{str(DEFAULT_LOG_FILE.absolute().as_posix())}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "Aliases": """{ "title" : "Module name aliases", "description" : "List of all aliases to bind the modules. This is useful when debugged modules have a different name from their image. The syntax for each item: 'imagename:aliasname' (e.g. aliasing ntkrnlmp to ntoskrnl would become 'ntkrnlmp.exe:ntoskrnl.exe' )", "type" : "array", "elementType": "string", "sorted": true, "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}""",
-        "LogFile": f"""{{ "title" : "Write logs to file", "description" : "Write RetSync logs to the given file", "type" : "string", "defaults":"{DEFAULT_LOG_FILE}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
     }
 
     settings = binaryninja.Settings()
@@ -71,7 +71,7 @@ def register_retsync_settings() -> None:
 register_retsync_settings()
 
 if logfile := binaryninja.Settings().get_string("retsync.LogFile"):
-    binaryninja.log.log_to_file(LOG_LEVEL, logfile, True)
+    binaryninja.log.log_to_file(DEFAULT_LOG_LEVEL, logfile, True)
 
 rs_debug("Loading RetSync sidebar")
 st = SyncSidebarWidgetType()

@@ -49,7 +49,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..sync import SyncPlugin
-from .config import rs_debug
+from .log import rs_debug
 
 CURRENT_FILE = pathlib.Path(__file__)
 CURRENT_FOLDER = CURRENT_FILE.parent

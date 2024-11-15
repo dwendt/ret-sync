@@ -49,12 +49,10 @@ from .retsync.config import (
     DEFAULT_HOST,
     DEFAULT_PORT,
     DEFAULT_TRACE_COLOR,
-    rs_debug,
     rs_decode,
     rs_encode,
-    rs_log,
-    rs_warn,
 )
+from .retsync.log import rs_debug, rs_log, rs_warn
 
 
 class SyncHandler(object):

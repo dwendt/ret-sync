@@ -24,7 +24,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import logging
 import pathlib
 import tempfile
 
@@ -44,18 +43,12 @@ RS_ENCODING = "utf-8"
 DEBUG_JSON = False
 
 # global log level (console output)
-LOG_LEVEL = logging.DEBUG
+DEFAULT_LOG_LEVEL = binaryninja.log.LogLevel.DebugLog
 
 # log prefix to identify plugin
-LOG_PREFIX = "sync"
+LOG_PREFIX = "retsync"
 
-# enable/disable broker and dipatcher exception logging to file
-LOG_TO_FILE_ENABLE = False
-
-DEFAULT_LOG_FILE = pathlib.Path(tempfile.gettempdir()) / "retsync.log"
-
-# logging feature for broker and dispatcher (disabled by default)
-LOG_FMT_STRING = "%(asctime)-12s [%(levelname)s] %(message)s"
+DEFAULT_LOG_FILE = pathlib.Path(tempfile.gettempdir()) / f"{LOG_PREFIX}.log"
 
 # dialects to translate debugger commands (breakpoint, step into/over, etc.)
 DBG_DIALECTS = {
@@ -114,99 +107,9 @@ DBG_DIALECTS = {
 }
 
 
-# def init_logging(src):
-#     logging.basicConfig(LOG_LEVEL)
-#     name = os.path.basename(src)
-#     logger = logging.getLogger("retsync.plugin." + name)
-
-#     if LOG_TO_FILE_ENABLE:
-#         rot_handler = logging.handlers.RotatingFileHandler(
-#             os.path.join(tempfile.gettempdir(), f"retsync.{name}.err"),
-#             mode="a",
-#             maxBytes=8192,
-#             backupCount=1,
-#         )
-
-#         formatter = logging.Formatter(LOG_FMT_STRING)
-#         rot_handler.setFormatter(formatter)
-#         rot_handler.setLevel(logging.DEBUG)
-#         logger.addHandler(rot_handler)
-
-#     return logger
-
-
-def rs_debug(s):
-    binaryninja.log.log_debug(s)
-
-
-def rs_info(s):
-    binaryninja.log.log_info(s)
-
-
-def rs_warn(s):
-    binaryninja.log.log_warn(s)
-
-
-def rs_error(s):
-    binaryninja.log.log_error(s)
-
-
 def rs_encode(buffer_str: str):
     return buffer_str.encode(RS_ENCODING)
 
 
 def rs_decode(buffer_bytes: bytes):
     return buffer_bytes.decode(RS_ENCODING)
-
-
-def rs_log(s: str, lvl=logging.INFO):
-    if lvl < LOG_LEVEL:
-        return
-
-    msg = f"[{LOG_PREFIX}] {s}"
-    cb = None
-
-    match lvl:
-        case logging.DEBUG:
-            cb = binaryninja.log.log_debug
-        case logging.WARNING:
-            cb = binaryninja.log.log_warn
-        case logging.ERROR:
-            cb = binaryninja.log.log_error
-        case _:
-            cb = binaryninja.log.log_info
-
-    if cb:
-        cb(msg)
-
-
-# UserConfig = namedtuple("user_conf", "host port alias path")
-
-
-# def load_configuration(
-#     pgm_path: pathlib.Path | None = None, name: str | None = None
-# ) -> UserConfig:
-#     host, port, alias, path = HOST, PORT, None, None
-
-#     # for loc in (pgm_path, "USERPROFILE", "HOME"):
-#     #     if loc in os.environ:
-#     #         confpath = os.path.join(os.path.realpath(os.environ[loc]), ".sync")
-
-#     confpath = pgm_path / ".sync" if pgm_path else pathlib.Path().home() / ".sync"
-#     if confpath.exists():
-#         config = SafeConfigParser({"host": HOST, "port": PORT})
-#         config.read(confpath)
-
-#         if config.has_section("INTERFACE"):
-#             host = config.get("INTERFACE", "host")
-#             port = config.getint("INTERFACE", "port")
-
-#         if name and config.has_option("ALIASES", name):
-#             alias_ = config.get("ALIASES", name)
-#             if alias_ != "":
-#                 alias = alias_
-
-#         path = confpath
-#         # break
-
-#     return UserConfig(host, port, alias, path)
