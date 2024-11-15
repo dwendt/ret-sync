@@ -32,6 +32,9 @@ import binaryninja
 if not binaryninja.core_ui_enabled:
     raise RuntimeError("UI only")
 
+if not binaryninja.core_version_info().major < 4:
+    raise RuntimeError("Binary Ninja 4.x+ required")
+
 from binaryninjaui import Sidebar
 
 from .retsync.config import (
@@ -45,8 +48,7 @@ from .retsync.config import (
 from .retsync.ui import SyncSidebarWidgetType
 
 # TODO
-# - require Binja 4.x+
-# - better sync / tab mgmt
+# - fix tab switch
 # - better tests
 # - better icons
 
