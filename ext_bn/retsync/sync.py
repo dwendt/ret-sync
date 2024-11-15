@@ -564,7 +564,7 @@ class SyncPlugin:
 
     def bootstrap(self, dialect: str):
         self.pgm_mgr.reset_bases()
-        self.widget.set_connected(dialect)
+        self.widget.set_connected(dialect, self.client.addr)
 
         if dialect in config.DBG_DIALECTS:
             self.dbg_dialect = config.DBG_DIALECTS[dialect]

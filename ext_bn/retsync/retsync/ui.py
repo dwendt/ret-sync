@@ -78,6 +78,12 @@ class SyncWidget(QWidget):
         client_dbg_layout.addWidget(self.client_dbg)
         client_dbg_layout.setAlignment(QtCore.Qt.AlignCenter)
 
+        client_addr_layout = QHBoxLayout()
+        client_addr_layout.addWidget(QLabel("Client address: "))
+        self.client_addr = QLabel("n/a")
+        client_addr_layout.addWidget(self.client_addr)
+        client_addr_layout.setAlignment(QtCore.Qt.AlignCenter)
+
         client_pgm_layout = QHBoxLayout()
         client_pgm_layout.addWidget(QLabel("Currently debugged module: "))
         self.client_pgm = QLabel("n/a")
@@ -88,6 +94,7 @@ class SyncWidget(QWidget):
         layout.addStretch()
         layout.addLayout(status_layout)
         layout.addLayout(client_dbg_layout)
+        layout.addLayout(client_addr_layout)
         layout.addLayout(client_pgm_layout)
         layout.addStretch()
         self.setLayout(layout)
@@ -97,15 +104,16 @@ class SyncWidget(QWidget):
             case SyncStatus.CONNECTED:
                 self.status.setStyleSheet("color: green")
             case SyncStatus.LISTENING:
-                self.status.setStyleSheet("color: blue")
+                self.status.setStyleSheet("color: cyan")
             case _:
                 self.status.setStyleSheet("")
 
         self.status.setText(status.name)
 
-    def set_connected(self, dialect: str):
+    def set_connected(self, dialect: str, addr: tuple[str, int]):
         self.set_status(SyncStatus.CONNECTED)
         self.client_dbg.setText(dialect)
+        self.client_addr.setText(f"{addr[0]}:{addr[1]}")
 
     def set_program(self, pgm: pathlib.Path):
         text = pgm.name
@@ -125,11 +133,13 @@ class SyncWidget(QWidget):
         self.set_status(SyncStatus.LISTENING)
         self.client_pgm.setText("n/a")
         self.client_dbg.setText("n/a")
+        self.client_addr.setText("n/a")
 
     def reset_status(self):
         self.set_status(SyncStatus.IDLE)
         self.client_pgm.setText("n/a")
         self.client_dbg.setText("n/a")
+        self.client_addr.setText("n/a")
 
 
 def open_file_as_icon(path: pathlib.Path) -> QImage:
