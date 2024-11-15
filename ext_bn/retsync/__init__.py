@@ -34,7 +34,14 @@ if not binaryninja.core_ui_enabled:
 
 from binaryninjaui import Sidebar
 
-from .retsync.config import HOST, LOG_LEVEL, LOG_TO_FILE_ENABLE, PORT, rs_debug
+from .retsync.config import (
+    CB_TRACE_COLOR,
+    HOST,
+    LOG_LEVEL,
+    LOG_TO_FILE_ENABLE,
+    PORT,
+    rs_debug,
+)
 from .retsync.ui import SyncSidebarWidgetType
 
 # TODO
@@ -48,6 +55,7 @@ def register_retsync_settings() -> None:
     all_settings: dict[str, str] = {
         "ServerHost": f"""{{ "title" : "TCP Listen Host", "description" : "Interface to listen on", "type" : "string", "default" : "{HOST}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "ServerPort": f"""{{ "title" : "TCP Listen Port", "description" : "TCP port to listen on", "type" : "number", "minValue": 1, "maxValue": 65535,  "default" : {PORT}, "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
+        "TraceColor": f"""{{ "title" : "Current Instruction Color", "description" : "When synchronized, use the following color for highlight the current instruction. The valid values are: none, blue, cyan, red, magenta, yellow, orange, white, black", "type" : "string", "default" : "{CB_TRACE_COLOR}", "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}}""",
         "Aliases": """{ "title" : "Module name aliases", "description" : "List of all aliases to bind the modules. This is useful when debugged modules have a different name from their image. The syntax for each item: 'imagename:aliasname' (e.g. aliasing ntkrnlmp to ntoskrnl would become 'ntkrnlmp.exe:ntoskrnl.exe' )", "type" : "array", "elementType": "string", "sorted": true, "ignore" : ["SettingsProjectScope", "SettingsResourceScope"]}""",
     }
 

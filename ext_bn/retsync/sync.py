@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 import binaryninja
 import binaryninjaui
-from binaryninja import BinaryView
+from binaryninja import BinaryView, HighlightColor, HighlightStandardColor
 
 if TYPE_CHECKING:
     from .retsync.ui import SyncWidget
@@ -681,10 +681,33 @@ class SyncPlugin:
         else:
             rs_log("goto: no view available")
 
-    def color_callback(self, hglt_addr):
+    def color_callback(self, hglt_addr: int):
+        match binaryninja.Settings().get_string("retsync.TraceColor").lower():
+            case "none":
+                color = HighlightStandardColor.NoHighlightColor
+            case "blue":
+                color = HighlightStandardColor.BlueHighlightColor
+            case "cyan":
+                color = HighlightStandardColor.CyanHighlightColor
+            case "red":
+                color = HighlightStandardColor.RedHighlightColor
+            case "magenta":
+                color = HighlightStandardColor.MagentaHighlightColor
+            case "yellow":
+                color = HighlightStandardColor.YellowHighlightColor
+            case "orange":
+                color = HighlightStandardColor.OrangeHighlightColor
+            case "white":
+                color = HighlightStandardColor.WhiteHighlightColor
+            case "black":
+                color = HighlightStandardColor.BlackHighlightColor
+            case _:
+                color = HighlightStandardColor.GreenHighlightColor
+
+        color_hl = HighlightColor(color, alpha=192)
         blocks = self.binary_view.get_basic_blocks_at(hglt_addr)
         for block in blocks:
-            block.function.set_user_instr_highlight(hglt_addr, config.CB_TRACE_COLOR)
+            block.function.set_user_instr_highlight(hglt_addr, color_hl)
 
     def get_cursor(self):
         if not self.view_frame:

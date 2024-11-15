@@ -29,14 +29,12 @@ import os
 import tempfile
 
 import binaryninja
-from binaryninja.enums import HighlightStandardColor
-from binaryninja.highlight import HighlightColor
 
 # networking settings
 HOST = "localhost"
 PORT = 9100
 
-CB_TRACE_COLOR = HighlightColor(HighlightStandardColor.GreenHighlightColor, alpha=192)
+CB_TRACE_COLOR = "green"
 
 # encoding settings (for data going in/out the plugin)
 RS_ENCODING = "utf-8"
