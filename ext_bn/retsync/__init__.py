@@ -44,9 +44,6 @@ from .retsync.config import (
 from .retsync.log import rs_debug
 from .retsync.ui import SyncSidebarWidgetType
 
-# TODO
-# - fix tab switch
-
 
 def register_retsync_settings() -> None:
     all_settings: dict[str, str] = {

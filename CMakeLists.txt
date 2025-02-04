@@ -13,4 +13,8 @@ set(PROJECT_AUTHOR bootleg)
 set(PROJECT_LICENSE GPLv3)
 
 add_subdirectory(ext_windbg)
-add_subdirectory(ext_x64dbg)
+
+if(NOT ("${CMAKE_GENERATOR_PLATFORM}" STREQUAL "arm64"))
+    # https://github.com/x64dbg/x64dbg/issues/2934
+    add_subdirectory(ext_x64dbg)
+endif()
