@@ -5,12 +5,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(CXX_STANDARD 20)
 
 include(FetchContent)
-set(X64DBG_SNAPSHOT_TIMESTAMP "2024-10-18_19-09")
+set(X64DBG_SNAPSHOT_TIMESTAMP "2025-01-17_12-45")
 message(STATUS "Setting up x64dbg-${X64DBG_SNAPSHOT_TIMESTAMP}")
 FetchContent_Declare(
     x64dbg
     URL https://github.com/x64dbg/x64dbg/releases/download/snapshot/snapshot_${X64DBG_SNAPSHOT_TIMESTAMP}.zip
-    URL_HASH SHA1=E84588749510EC9075603EDD12AC22C9FC7C7E03
+    URL_HASH SHA1=57e77f9a406647b0ad31311630e3fc44f25979b3
 )
 FetchContent_MakeAvailable(x64dbg)
 include("cmake/x64dbg.cmake")
