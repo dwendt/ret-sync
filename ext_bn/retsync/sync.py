@@ -423,23 +423,24 @@ class ProgramManager(object):
         self.opened: OrderedDict[pathlib.Path, Program] = OrderedDict()
 
     def add(self, fpath: pathlib.Path):
+        rs_debug(f"pgm add {fpath=} vs {fpath.name}")
         if fpath.name in self.opened:
             rs_warn(
                 f'name collision ({fpath.name}):\n  - new:      "{fpath}"\n  - existing: "{self.opened[fpath.name].path}"'
             )
             rs_warn("warning, tab switching may not work as expected")
-            self.opened[fpath].lock()
+            self.opened[fpath.name].lock()
         else:
-            self.opened[fpath] = Program(fpath)
+            self.opened[fpath.name] = Program(fpath)
 
     def remove(self, fpath: pathlib.Path):
         if fpath not in self.opened:
             return
-        if self.opened[fpath].release():
-            del self.opened[fpath]
+        if self.opened[fpath.name].release():
+            del self.opened[fpath.name]
 
     def exists(self, pgm: pathlib.Path):
-        return pgm in self.opened
+        return pgm.name in self.opened
 
     def __contains__(self, pgm: pathlib.Path):
         return self.exists(pgm)
@@ -452,13 +453,13 @@ class ProgramManager(object):
         self,
         pgm: pathlib.Path,
     ):
-        return self.opened[pgm].base if self.exists(pgm) else None
+        return self.opened[pgm.name].base if self.exists(pgm) else None
 
     def set_base_for_program(self, pgm: pathlib.Path, base: int):
         if not self.exists(pgm):
             rs_warn(f"{pgm} is not handled")
             return
-        self.opened[pgm].base = base
+        self.opened[pgm.name].base = base
 
     def get_at(self, index: int) -> pathlib.Path | None:
         if index >= len(self.opened):
@@ -515,7 +516,7 @@ class SyncPlugin:
         self.dbg_dialect: dict[str, dict[str, str]] = {}
 
     def update_view(self, bv: BinaryView, tab_name: str):
-        rs_debug(f"[SyncPlugin::update_view] {bv=} {tab_name=}")
+        rs_debug(f"[SyncPlugin::update_view] {bv=} {tab_name=} {self.pgm_mgr=}")
 
         # if there's no view, do nothing
         if not bv:
@@ -532,6 +533,10 @@ class SyncPlugin:
             else bv.file.original_filename
         )
 
+        # fname may be the full path, but your aliases are usually per-file.
+        fname_file = pathlib.Path(fname).name
+        rs_debug(f"[SyncPlugin::update_view] {fname=} {fname_file=}")
+
         if not fname:
             return
 
@@ -545,6 +550,9 @@ class SyncPlugin:
         if fname in aliases:
             rs_debug(f"fix alias {fname} -> {aliases[fname]} ")
             fname = aliases[fname]
+        elif fname_file in aliases:
+            rs_debug(f"fix alias {fname} -> {aliases[fname_file]} ")
+            fname = aliases[fname_file]
 
         # if the view is not in the program manager, add it
         pgm = pathlib.Path(fname)
@@ -553,7 +561,7 @@ class SyncPlugin:
             rs_debug(f"Added {pgm}, currently opened {self.pgm_mgr.opened}")
 
         self.binary_view = bv
-        self.current_tab = pgm.name
+        self.current_tab = pgm
         self.base = self.binary_view.start
         self.base_remote = self.pgm_mgr.get_base_for_program(pgm)
         if self.base_remote:
